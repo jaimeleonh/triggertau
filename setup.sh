@@ -142,6 +142,13 @@ action() {
         fi
         cd "$CMT_CMSSW_BASE/$CMT_CMSSW_VERSION/src"
         cmsenv
+        
+        export NANOTOOLS_PATH="PhysicsTools/NanoAODTools"
+        if [ ! -d "$NANOTOOLS_PATH" ]; then
+          git clone https://github.com/cms-nanoAOD/nanoAOD-tools.git PhysicsTools/NanoAODTools
+          scram b
+        fi
+        
         #export COMBINE_PATH="HiggsAnalysis/CombinedLimit"
         #if [ ! -d "$COMBINE_PATH" ]; then
         #    git clone https://github.com/cms-analysis/HiggsAnalysis-CombinedLimit.git $COMBINE_PATH
@@ -243,3 +250,4 @@ action() {
     which law &> /dev/null && source "$( law completion )" ""
 }
 action "$@"
+#voms-proxy-init --voms cms -valid 192:0
