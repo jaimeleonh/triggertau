@@ -1,4 +1,4 @@
-# INSTALLATION
+# Installation (on lxplus)
 
 ```
 git clone https://gitlab.cern.ch/cms-phys-ciemat/nanoaod_base_analysis.git
