@@ -99,7 +99,9 @@ class Preprocess(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
     def run(self):
         from analysis_tools.utils import join_root_selection as jrs
         from shutil import move
-        from PhysicsTools.NanoAODTools.postprocessing.modules.jme.jetmetHelperRun2 import createJMECorrector
+        from PhysicsTools.NanoAODTools.postprocessing.modules.jme.jetmetHelperRun2 import (
+            createJMECorrector
+        )
         from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor import PostProcessor
 
         # prepare inputs and outputs
@@ -113,7 +115,7 @@ class Preprocess(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
         dataset_selection = self.dataset.get_aux("selection")
         if dataset_selection and dataset_selection != "1":
             selection = jrs(dataset_selection, selection, op="and")
-        selection = "Jet_pt>500"
+        selection = "Jet_pt > 700" # hard-coded to reduce the number of events on purpose
 
         jmeCorrections = createJMECorrector(
             True, self.config.year, "B", "All", "AK4PFchs", False, splitJER=True)

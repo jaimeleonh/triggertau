@@ -19,6 +19,7 @@ import law
 
 from law.util import merge_dicts
 from law.contrib.htcondor.job import HTCondorJobFileFactory
+from cmt.condor_tools.htcondor import HTCondorWorkflowExt
 
 law.contrib.load("cms", "git", "htcondor", "root", "tasks", "telegram", "tensorflow", "wlcg")
 
@@ -237,7 +238,7 @@ class DatasetWrapperTask(ConfigTask):
         return list(self.config.datasets.names())
 
 
-class HTCondorWorkflow(law.htcondor.HTCondorWorkflow):
+class HTCondorWorkflow(HTCondorWorkflowExt):
 
     only_missing = luigi.BoolParameter(default=True, significant=False, description="skip tasks "
         "that are considered complete, default: True")
