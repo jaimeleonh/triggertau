@@ -21,7 +21,8 @@ class Config():
 
     def add_processes(self):
         processes = [
-            Process("ggf_sm", "GGFSM", color=(0, 0, 0))
+            Process("ggf_sm", "GGFSM", color=(0, 0, 0)),
+            Process("data_tau", "DATA_TAU", color=(255, 255, 255))
         ]
         return ObjectCollection(processes)
 
@@ -31,7 +32,13 @@ class Config():
                 "/store/mc/RunIIAutumn18NanoAODv7/GluGluToHHTo2B2Tau_node_cHHH1_TuneCP5_PSWeights_13TeV-powheg-pythia8"
                 "/NANOAODSIM/Nano02Apr2020_102X_upgrade2018_realistic_v21-v1/",
                 self.processes.get("ggf_sm"),
-                prefix="ingrid-se04.cism.ucl.ac.be:1094/")
+                prefix="ingrid-se04.cism.ucl.ac.be:1094/"),
+            Dataset("data_dum",
+                "/store/data/Run2018A/Tau/NANOAOD/02Apr2020-v1/",
+                self.processes.get("data_tau"),
+                isData=True,
+                runPeriod="A",
+                prefix="grid-dcache.physik.rwth-aachen.de:1094/")
         ]
         return ObjectCollection(datasets)
 

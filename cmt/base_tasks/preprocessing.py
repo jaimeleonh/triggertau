@@ -11,6 +11,7 @@ import abc
 import contextlib
 import itertools
 from collections import OrderedDict, defaultdict
+import os
 
 import law
 import luigi
@@ -53,6 +54,8 @@ class DatasetCategoryWrapperTask(DatasetWrapperTask, law.WrapperTask):
 class Preprocess(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
 
     modules = luigi.DictParameter(default=None)
+    modules_file = luigi.Parameter(description="filename with modules to run on nanoAOD tools",
+        default=None)
 
     # regions not supported
     region_name = None
@@ -74,40 +77,47 @@ class Preprocess(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
         # return self.local_target("{}".format(self.input()["data"].split("/")[-1]))
     
     def get_modules(self):
-        from importlib import import_module
-        import sys
+        module_params = None
+        if self.modules_file:
+            import yaml
+            with open(os.path.expandvars("$CMT_BASE/cmt/config/{}.yaml".format(self.modules_file))) as f:
+                module_params = yaml.load(f, Loader=yaml.FullLoader)
+        else:
+            return []
+        
+        def _args(*_nargs, **_kwargs):
+            return _nargs, _kwargs
+        
         modules = []
-        if self.modules:
-            for mod, names in self.modules:
-                import_module(mod)
-                obj = sys.modules[mod]
-                selnames = names.split(",")
-                mods = dir(obj)
-                for name in selnames:
-                    if name in mods:
-                        print("Loading %s from %s " % (name, mod))
-                        if type(getattr(obj, name)) == list:
-                            for mod in getattr(obj, name):
-                                modules.append(mod())
-                        else:
-                            modules.append(getattr(obj, name)())
-        return modules        
-
+        for name in module_params.keys():
+            parameter_str = ""
+            for param, value in module_params[name]["parameters"].items():
+                if isinstance(value, str): 
+                    if "self" in value:
+                        value = eval(value)
+                if isinstance(value, str):
+                    parameter_str += param + " = '{}', ".format(value)
+                else:
+                    parameter_str += param + " = {}, ".format(value)
+            mod = module_params[name]["path"]
+            mod = __import__(mod, fromlist=[name])
+            nargs, kwargs = eval('_args(%s)' % parameter_str)
+            modules.append(getattr(mod, name)(**kwargs)())      
+        return modules
 
     @law.decorator.notify
     @law.decorator.localize(input=False)
     def run(self):
         from analysis_tools.utils import join_root_selection as jrs
         from shutil import move
-        from PhysicsTools.NanoAODTools.postprocessing.modules.jme.jetmetHelperRun2 import (
-            createJMECorrector
-        )
+        # from PhysicsTools.NanoAODTools.postprocessing.modules.jme.jetmetHelperRun2 import (
+            # createJMECorrector
+        # )
         from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor import PostProcessor
 
         # prepare inputs and outputs
         # inp = self.input()["data"]
         inp = self.input()["data"].path
-        print inp
         outp = self.output().path
 
         # build the full selection
@@ -115,15 +125,11 @@ class Preprocess(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
         dataset_selection = self.dataset.get_aux("selection")
         if dataset_selection and dataset_selection != "1":
             selection = jrs(dataset_selection, selection, op="and")
-        selection = "Jet_pt > 700" # hard-coded to reduce the number of events on purpose
-
-        jmeCorrections = createJMECorrector(
-            True, self.config.year, "B", "All", "AK4PFchs", False, splitJER=True)
-
+        selection = "Jet_pt > 1000" # hard-coded to reduce the number of events on purpose
         modules = self.get_modules()
         p = PostProcessor(".", [inp],
                       cut=selection,
-                      modules=[jmeCorrections()],
+                      modules=modules,
                       postfix="")
         p.run()
         move("./{}".format(inp.split("/")[-1]), outp)
