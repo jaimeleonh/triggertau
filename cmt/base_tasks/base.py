@@ -292,8 +292,6 @@ class InputData(DatasetTask, law.ExternalTask):
     file_index = luigi.IntParameter(default=law.NO_INT, description="index of the external file to "
         "refer to, points to the collection of all files when empty, default: empty")
 
-    default_wlcg_fs = "wlcg_xrootd"
-    os.environ["CMT_REMOTE_JOB"] = "1"
     version = None
 
     def complete(self):
@@ -305,3 +303,9 @@ class InputData(DatasetTask, law.ExternalTask):
         else:
             cls = law.SiblingFileCollection
             return cls([self.dynamic_target(file_path, avoid_store=True) for file_path in self.dataset.get_files()])
+
+
+class RemoteInputData(InputData):
+
+    default_wlcg_fs = "wlcg_xrootd"
+    os.environ["CMT_REMOTE_JOB"] = "1"

@@ -17,7 +17,7 @@ import law
 import luigi
 
 from cmt.base_tasks.base import ( 
-    DatasetTaskWithCategory, DatasetWrapperTask, HTCondorWorkflow, InputData, ConfigTaskWithCategory
+    DatasetTaskWithCategory, DatasetWrapperTask, HTCondorWorkflow, RemoteInputData, ConfigTaskWithCategory
 )
 
 
@@ -67,10 +67,10 @@ class Preprocess(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
         return len(self.dataset.get_files())
 
     def workflow_requires(self):
-        return {"data": InputData.req(self)}
+        return {"data": RemoteInputData.req(self)}
 
     def requires(self):
-        return {"data": InputData.req(self, file_index=self.branch)}
+        return {"data": RemoteInputData.req(self, file_index=self.branch)}
 
     def output(self):
         return self.local_target("{}".format(self.input()["data"].path.split("/")[-1]))
