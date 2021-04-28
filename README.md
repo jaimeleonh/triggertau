@@ -2,7 +2,7 @@
 
 ```
 git clone https://gitlab.cern.ch/jaimeleonh/triggertau.git
-cd nanoaod_base_analysis
+cd triggertau
 source setup.sh
 law index --verbose
 ```
