@@ -1,7 +1,7 @@
 # Installation (on lxplus)
 
 ```
-git clone https://gitlab.cern.ch/cms-phys-ciemat/nanoaod_base_analysis.git
+git clone https://gitlab.cern.ch/jaimeleonh/triggertau.git
 cd nanoaod_base_analysis
 source setup.sh
 law index --verbose
