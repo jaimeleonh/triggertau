@@ -12,19 +12,30 @@ class Config():
         self.categories = self.add_categories()
         self.processes = self.add_processes()
         self.datasets = self.add_datasets()
+        self.versions = self.add_versions()
 
     def add_categories(self):
         categories = [
             Category("base", "base category"),
             Category("bbtt", "bbtautau",
-                selection="lead_sublead_pt(Jet_pt)[0] > 20 && lead_sublead_pt(Jet_pt)[1] > 20")
+                selection="lead_sublead_pt(Jet_pt)[0] > 20 && lead_sublead_pt(Jet_pt)[1] > 20"),
+            # H->tautau selection, extracted from cms.cern.ch/iCMS/jsp/openfile.jsp?tp=draft&files=AN2019_109_v17.pdf, L719
+            Category("htt_0jet", "htt_0jet",
+                selection="Jet_pt[Jet_pt >= 30 && abs(Jet_eta) <= 4.7 && Jet_jetId == 2 && ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))].size() == 0"),
+            Category("htt_1jet", "htt_1jet",
+                selection="Jet_pt[Jet_pt >= 30 && abs(Jet_eta) <= 4.7 && Jet_jetId == 2 && ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))].size() == 1"),
+            Category("htt_2jet", "htt_2jet",
+                selection="Jet_pt[Jet_pt >= 30 && abs(Jet_eta) <= 4.7 && Jet_jetId == 2 && ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))].size() == 2")
         ]
         return ObjectCollection(categories)
 
     def add_processes(self):
         processes = [
-            Process("ggf_sm", "GGFSM", color=(0, 0, 0)),
-            Process("data_tau", "DATA_TAU", color=(255, 255, 255))
+            Process("ggf_lo", "HH #rightarrow bb#tau#tau, ggHH SM LO", color=(0, 0, 0)),
+            Process("ggf_sm", "HH #rightarrow bb#tau#tau, ggHH SM", color=(0, 0, 0)),
+            Process("htautau_ggf", "H #rightarrow #tau#tau, ggH SM", color=(0, 0, 0)),
+            Process("data_tau", "DATA_TAU", color=(255, 255, 255)),
+            Process("nu", "nu gun", color=(255, 255, 255)),
         ]
         return ObjectCollection(processes)
 
@@ -39,15 +50,32 @@ class Config():
             Dataset("ggf_sm",
                 "/eos/user/j/jleonhol/HH/ggf_2018_nanotest2/",
                 self.processes.get("ggf_sm")),
+            Dataset("ggf_lo",
+                "/eos/home-j/jleonhol/HH/ggf_lo/",
+                self.processes.get("ggf_lo")),
+            Dataset("htautau_ggf",
+                "/eos/user/j/jleonhol/HH/htautau_ggf/",
+                self.processes.get("htautau_ggf"),
+                add_to_leading_pt=18,
+                add_to_subleading_pt=8),
             Dataset("data_dum",
                 "/store/data/Run2018A/Tau/NANOAOD/02Apr2020-v1/",
                 self.processes.get("data_tau"),
                 isData=True,
                 runPeriod="A",
                 prefix="cms-xrd-global.cern.ch/",
-                locate="grid-dcache.physik.rwth-aachen.de:1094/")
+                locate="grid-dcache.physik.rwth-aachen.de:1094/"),
+            Dataset("nu",
+                "/eos/cms/store/group/dpg_trigger/comm_trigger/L1Trigger/stempl/condor/menu_Nu_11_0_X_1614189426/",
+                self.processes.get("nu"),
+                skipFiles=[
+                    "/eos/cms/store/group/dpg_trigger/comm_trigger/L1Trigger/stempl/condor/menu_Nu_11_0_X_1614189426//44.root"])
         ]
         return ObjectCollection(datasets)
+    
+    def add_versions(self):
+        versions = {}
+        return versions
 
 
 config = Config("base", year=2018, ecm=13, lumi=59741)
