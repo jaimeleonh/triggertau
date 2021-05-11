@@ -7,6 +7,8 @@ from analysis_tools.utils import (
     import_root, create_file_dir, join_root_selection
 )
 
+from plottint_tools.root.labels import get_labels
+
 from cmt.base_tasks.base import ( 
     DatasetTaskWithCategory, DatasetWrapperTask, HTCondorWorkflow, InputData, ConfigTaskWithCategory
 )
@@ -19,7 +21,7 @@ class PlotAcceptance(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflo
 
     xx_range = law.CSVParameter(default=("32", "33"))
     yy_range = (20, 40)
-    zz_range = (60, 150)    
+    zz_range = (20, 160)    
     #xx_range = (20, 21)
     #yy_range = (20, 21)
     #zz_range = (20, 21)
@@ -84,6 +86,30 @@ class PlotAcceptance(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflo
                     "(DoubleIsoTau && offline.DoubleIsoTau{0}er2p1) "
                         "|| (DoubleIsoTau{1}er2p1Jet{2}dR0p5 && dum)".format(xx, yy, zz)
                 ).Histo1D(hmodel, "pass")
+        
+        histos_ditau = {}
+        for xx in range(*self.xx_range):
+            histos_ditau[xx] = df.Define(
+                    "DoubleIsoTau", "DoubleIsoTau{0}er2p1".format(xx)
+                ).Define(
+                    "OfflineDoubleIsoTau", "offline.DoubleIsoTau{0}er2p1".format(xx)
+                ).Define(
+                    "pass", "DoubleIsoTau && OfflineDoubleIsoTau"
+                ).Histo1D(hmodel, "pass")
+
+        histos_ditaujet = {}
+        for xx, zz in itertools.product(
+                range(*self.xx_range), range(*self.zz_range)):
+            histos_ditaujet[(xx, zz)] = df.Define(
+                    "DoubleIsoTauJet",
+                    "DoubleIsoTau{0}er2p1Jet{1}dR0p5".format(xx, zz)
+                ).Define(
+                    "OfflineDoubleIsoTauJet",
+                    "offline.DoubleIsoTau{0}er2p1Jet{1}dR0p5".format(xx, zz)
+                ).Define(
+                    "pass", "DoubleIsoTauJet && OfflineDoubleIsoTauJet"
+                ).Histo1D(hmodel, "pass")
+
         histo_den = df.Define(
                 "DoubleIsoTau", "DoubleIsoTau32er2p1"
             ).Define("den", "(DoubleIsoTau && offline.DoubleIsoTau32er2p1)"
@@ -102,9 +128,27 @@ class PlotAcceptance(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflo
                 range(*self.xx_range), range(*self.yy_range), range(*self.zz_range)):
             num.Fill(xx, yy, zz, histos[(xx, yy, zz)].Integral())
 
+        hmodel = ("ditau", "; XX; Events; ",
+            nbinsX, self.xx_range[0], self.xx_range[1]
+        )
+        ditau = ROOT.TH1F(*hmodel)
+        for xx in range(*self.xx_range):
+            ditau.Fill(xx, histos_ditau[xx].Integral())
+
+        hmodel = ("ditaujet", "; XX; ZZ",
+            nbinsX, self.xx_range[0], self.xx_range[1],
+            nbinsZ, self.zz_range[0], self.zz_range[1],
+        )
+        ditaujet = ROOT.TH2F(*hmodel)
+        for xx, zz in itertools.product(
+                range(*self.xx_range), range(*self.zz_range)):
+            ditaujet.Fill(xx, zz, histos_ditaujet[(xx, zz)].Integral())
+
         outp = self.output()["root"].path
         f = ROOT.TFile(create_file_dir(outp), "RECREATE")
         num.Write()
+        ditau.Write()
+        ditaujet.Write()
         f.Close()
 
         f = ROOT.TFile.Open(inp_trigger)
@@ -173,28 +217,6 @@ class Plot2D(DatasetTaskWithCategory):
                     with open(jsonfile) as f:
                         d = json.load(f)
                     den += d["den"]
-
-        def get_labels(upper_left="Private work", upper_right="DT SliceTest, Cosmic Data (2020)", inner_text = None):
-            labels = []
-            if upper_left:
-                label = ROOT.TLatex(0.02, 0.91, "#scale[1.5]{       CMS} " + "{}".format(upper_left))
-                label.SetNDC(True)
-                label.SetTextSize(0.03)
-                labels.append(label)
-            if upper_right:
-                label = ROOT.TLatex(0.48, 0.91, "{}".format(upper_right))
-                label.SetNDC(True)
-                label.SetTextSize(0.03)
-                labels.append(label)
-            if inner_text:
-                y = 0.87
-                for text in inner_text:
-                    label = ROOT.TLatex(0.15, y, "{}".format(text))
-                    label.SetNDC(True)
-                    label.SetTextSize(0.03)
-                    labels.append(label)
-                    y -= 0.05
-                return labels
 
         for i, (label, var_range) in enumerate(zip(self.labels, self.ranges)):
             other_labels = deepcopy(self.labels)
@@ -274,7 +296,9 @@ class PlotRate(PlotAcceptance):
 
         # filling plots for DoubleTau trigger
         for xx in range(*self.xx_range):
-            histos_ditau[xx] = df.Histo1D(hmodel, "DoubleIsoTau{0}er2p1".format(xx))
+            histos_ditau[xx] = df.Define(
+                "pass", "DoubleIsoTau{0}er2p1".format(xx)
+            ).Histo1D(hmodel, "pass")
 
         # filling plots for DoubleTau + jet w/o and w/ overlap removal
         for xx, yy, zz in itertools.product(
@@ -339,7 +363,7 @@ class PlotRate(PlotAcceptance):
 
 class Plot2DRate(DatasetTaskWithCategory):
     
-    xx_range = law.CSVParameter(default=("20", "40"))
+    xx_range = law.CSVParameter(default=("32", "40"))
 
     def __init__(self, *args, **kwargs):
         super(Plot2DRate, self).__init__(*args, **kwargs)
@@ -418,30 +442,6 @@ class Plot2DRate(DatasetTaskWithCategory):
                     with open(jsonfile) as f:
                         d = json.load(f)
                     nevents += d["nevents"]
-
-        def get_labels(upper_left="Private work", upper_right="DT SliceTest, Cosmic Data (2020)",
-                inner_text = None):
-            labels = []
-            if upper_left:
-                label = ROOT.TLatex(0.02, 0.91, "#scale[1.5]{       CMS} " + "{}".format(
-                    upper_left))
-                label.SetNDC(True)
-                label.SetTextSize(0.03)
-                labels.append(label)
-            if upper_right:
-                label = ROOT.TLatex(0.48, 0.91, "{}".format(upper_right))
-                label.SetNDC(True)
-                label.SetTextSize(0.03)
-                labels.append(label)
-            if inner_text:
-                y = 0.87
-                for text in inner_text:
-                    label = ROOT.TLatex(0.15, y, "{}".format(text))
-                    label.SetNDC(True)
-                    label.SetTextSize(0.03)
-                    labels.append(label)
-                    y -= 0.05
-                return labels
 
         histo_ditau.Scale((2760. * 11246.) / (1000 * nevents))
         c = ROOT.TCanvas("", "", 800, 800)
@@ -523,7 +523,7 @@ class Plot2DLimitRate(Plot2D):
         default="nu")
     rate_category_name = luigi.Parameter(description="category name used for rate studies",
         default="base")
-    rate_threshold = luigi.FloatParameter(default=-1., description="maximum rate threshold "
+    rate_threshold = luigi.FloatParameter(default=18., description="maximum rate threshold "
         "default: 18.")
     rate_low_percentage = luigi.FloatParameter(default=0.05, description="min allowed rate "
         "default: 0.05")
@@ -542,11 +542,14 @@ class Plot2DLimitRate(Plot2D):
         outputs = {
             "plot": self.local_target("plot2D_{}.pdf".format(str(self.rate_threshold).replace(
                 ".", "_"))),
+            "rateplot": self.local_target("rate_plot2D_{}.pdf".format(str(self.rate_threshold).replace(
+                ".", "_"))),
             "json": self.local_target("plot2D_{}.json".format(str(self.rate_threshold).replace(
                 ".", "_"))),
         }
         return outputs
 
+    @law.decorator.notify
     def run(self):
         from copy import deepcopy
         import json
@@ -561,7 +564,7 @@ class Plot2DLimitRate(Plot2D):
         nbinsX = self.ranges[0][1] - self.ranges[0][0]
         nbinsY = self.ranges[1][1] - self.ranges[1][0]
         nbinsZ = self.ranges[2][1] - self.ranges[2][0]
-        hmodel = ("histo", "; XX; YY; ZZ",
+        hmodel = ("histo3D", "; XX; YY; ZZ",
             nbinsX, self.ranges[0][0], self.ranges[0][1],
             nbinsY, self.ranges[1][0], self.ranges[1][1],
             nbinsZ, self.ranges[2][0], self.ranges[2][1],
@@ -582,6 +585,9 @@ class Plot2DLimitRate(Plot2D):
             rates = json.load(f)
 
         histo2D = ROOT.TH2F("histo", "; XX; YY", 
+            nbinsX, self.ranges[0][0], self.ranges[0][1],
+            nbinsY, self.ranges[1][0], self.ranges[1][1])
+        ratehisto2D = ROOT.TH2F("ratehisto", "; XX; YY; ZZ", 
             nbinsX, self.ranges[0][0], self.ranges[0][1],
             nbinsY, self.ranges[1][0], self.ranges[1][1])
         dict_to_output = OrderedDict()
@@ -607,47 +613,46 @@ class Plot2DLimitRate(Plot2D):
             else:
                 histo2D.SetBinContent(x + 1, y + 1,
                     histo.GetBinContent(x + 1, y + 1, z + 1) / float(den))
+                ratehisto2D.SetBinContent(x + 1, y + 1, zz_to_use)
                 dict_to_output["{}, {}, {}".format(xx, yy, zz_to_use)] = (rates["{}, {}, {}".format(xx, yy, zz_to_use)],
                     histo.GetBinContent(x + 1, y + 1, z + 1) / float(den))
 
-        def get_labels(upper_left="Private work", upper_right="DT SliceTest, Cosmic Data (2020)", inner_text = None):
-            labels = []
-            if upper_left:
-                label = ROOT.TLatex(0.02, 0.91, "#scale[1.5]{       CMS} " + "{}".format(upper_left))
-                label.SetNDC(True)
-                label.SetTextSize(0.03)
-                labels.append(label)
-            if upper_right:
-                label = ROOT.TLatex(0.48, 0.91, "{}".format(upper_right))
-                label.SetNDC(True)
-                label.SetTextSize(0.03)
-                labels.append(label)
-            if inner_text:
-                y = 0.87
-                for text in inner_text:
-                    label = ROOT.TLatex(0.15, y, "{}".format(text))
-                    label.SetNDC(True)
-                    label.SetTextSize(0.03)
-                    labels.append(label)
-                    y -= 0.05
-                return labels
-
         c = ROOT.TCanvas("", "", 800, 800)
-        histo2D.GetZaxis().SetRangeUser(0.6, 1.2)
-        histo2D.GetXaxis().SetRangeUser(32, 40)
-        histo2D.Draw("colz")
+        histo2D.GetZaxis().SetRangeUser(0.8, 1.2)
+        histo2D.Draw("text, colz")
         texts = get_labels(upper_right="           2018 Simulation (13 TeV)",
             inner_text=[self.dataset.process.label])
         for text in texts:
             text.Draw("same")
         c.SaveAs(create_file_dir(output["plot"].path))
-        del histo2D, c
+        
+        c.SetLeftMargin(0.1)
+        c.SetRightMargin(0.15)
+        ratehisto2D.GetZaxis().SetTitleOffset(1.5)
+        ratehisto2D.Draw("text, colz")
+        texts = get_labels(upper_right="           2018 Simulation (13 TeV)",
+            inner_text=[self.dataset.process.label,
+                "Rate#leq{}kHz".format(self.rate_threshold)
+            ])
+        for text in texts:
+            text.Draw("same")
+        c.SaveAs(create_file_dir(output["rateplot"].path))
+
+        del ratehisto2D, histo2D, c
 
         with open(create_file_dir(output["json"].path), "w") as f:
             json.dump(dict_to_output, f, indent=4)
 
 
+class DecoAcceptance(Plot2D):
+    
+    xx_range = law.CSVParameter(default=("2", "40"))
 
+    def output(self):
+        output = {}
+        for xx, yy in itertools.product(range(*self.ranges[0]), range(*self.ranges[1])):
+            output[(xx, yy)] = self.local_target("plot_xx{}_yy{}.pdf".format(xx, yy))
+        return output
 
 
 

@@ -16,7 +16,7 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
 
     xx_range = (20, 40)
     yy_range = (20, 40)
-    zz_range = (20, 150)
+    zz_range = (20, 160)
 
     additional_branches = [
         #"nTau","Tau_pt", "Tau_eta", "Tau_phi", "Tau_mass",
@@ -50,21 +50,53 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
     def add_to_root(self, root):
         root.gInterpreter.Declare("""
             using Vfloat = const ROOT::RVec<float>&;      
-            ROOT::RVec<float> lead_sublead_pt(Vfloat pt){
-                ROOT::RVec<float> leading_pts;
-                leading_pts.push_back(-1.);
-                leading_pts.push_back(-1.);
+            ROOT::RVec<ROOT::RVec<float>> lead_sublead(Vfloat pt, Vfloat eta, Vfloat phi, Vfloat mass){
+                ROOT::RVec<float> leading_pts = {-1., -1.};
+                ROOT::RVec<float> leading_etas = {-1., -1.};
+                ROOT::RVec<float> leading_phis = {-1., -1.};
+                ROOT::RVec<float> leading_mass = {-1., -1.};
                 for (size_t i = 0; i < pt.size(); i++) {
-                    if (pt[i] > leading_pts[0]) {
+                    if (pt[i] > leading_pts[0]){
                         leading_pts[1] = leading_pts[0];
+                        leading_etas[1] = leading_etas[0];
+                        leading_phis[1] = leading_phis[0];
+                        leading_mass[1] = leading_mass[0];
+        
                         leading_pts[0] = pt[i];
+                        leading_etas[0] = eta[i];
+                        leading_phis[0] = phi[i];
+                        leading_mass[0] = mass[i];
                     } 
-                    else if (pt[i] > leading_pts[1])
+                    else if (pt[i] > leading_pts[1]){
                         leading_pts[1] = pt[i];
+                        leading_etas[1] = eta[i];
+                        leading_phis[1] = phi[i];
+                        leading_mass[1] = mass[i];
+                    }
                 }
-                return leading_pts;
+                return ROOT::RVec({leading_pts, leading_etas, leading_phis, leading_mass});
             }
         """)
+        root.gInterpreter.Declare("""
+            #include <TLorentzVector.h>
+            using Vfloat = const ROOT::RVec<float>&;      
+            ROOT::RVec<bool> maskDeltaR(Vfloat pt1, Vfloat eta1, Vfloat phi1, Vfloat mass1, Vfloat pt2, Vfloat eta2, Vfloat phi2, Vfloat mass2, float th_dr) {
+                ROOT::RVec<bool> mask;
+                for (size_t i = 0; i < pt1.size(); i++){
+                    TLorentzVector v1;
+                    v1.SetPtEtaPhiM(pt1[i], eta1[i], phi1[i], mass1[i]);
+                    bool bigger_deltar = true;
+                    for (size_t j = 0; j < pt2.size(); j++){
+                        TLorentzVector v2;
+                        v2.SetPtEtaPhiM(pt2[j], eta2[j], phi2[j], mass2[j]);
+                        float this_deltar = fabs(v1.DeltaR(v2));
+                        if (abs(this_deltar) < th_dr) bigger_deltar = false;
+                    }
+                    mask.push_back(bigger_deltar);
+                }
+                return mask;
+            }
+            """)
         return root
 
     def get_new_dataframe(self, input_file, output_file):
@@ -94,28 +126,6 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
                 "].size() >= 2".format(xx)
             )
             branch_names.append(name)
-
-        ROOT.gInterpreter.Declare("""
-            #include <TLorentzVector.h>
-            using Vfloat = const ROOT::RVec<float>&;      
-            ROOT::RVec<bool> maskDeltaR(Vfloat pt1, Vfloat eta1, Vfloat phi1, Vfloat mass1,
-                    Vfloat pt2, Vfloat eta2, Vfloat phi2, Vfloat mass2, float th_dr) {
-                ROOT::RVec<bool> mask;
-                for (size_t i = 0; i < pt1.size(); i++){
-                    TLorentzVector v1;
-                    v1.SetPtEtaPhiM(pt1[i], eta1[i], phi1[i], mass1[i]);
-                    bool bigger_deltar = true;
-                    for (size_t j = 0; j < pt2.size(); j++){
-                        TLorentzVector v2;
-                        v2.SetPtEtaPhiM(pt2[j], eta2[j], phi2[j], mass2[j]);
-                        float this_deltar = fabs(v1.DeltaR(v2));
-                        if (abs(this_deltar) < th_dr) bigger_deltar = false;
-                    }
-                    mask.push_back(bigger_deltar);
-                }
-                return mask;
-            }
-        """)
 
         for yy, zz in itertools.product(range(*self.yy_range), range(*self.zz_range)):
             # Using L1 Taus and Jets
@@ -171,9 +181,6 @@ class AddOffline(AddTrigger):
         "nTau","Tau_pt", "Tau_eta", "Tau_phi", "Tau_mass",
         "nJet","Jet_pt", "Jet_eta", "Jet_phi", "Jet_mass",
         "nGenVisTau", "GenVisTau_pt", "GenVisTau_eta", "GenVisTau_phi", "GenVisTau_mass",
-        #"nTrigTau",
-        #"TrigTau_pt", "TrigTau_phi", "TrigTau_eta"
-        #"nL1Obj", "L1Obj_pt", "L1Obj_eta", "L1Obj_phi", "L1Obj_type",
     ]
 
     def get_new_dataframe(self, input_file, output_file):
@@ -189,12 +196,38 @@ class AddOffline(AddTrigger):
         if self.category.selection:
             df = df.Filter(self.category.selection)
 
+        df = df.Define("lead_sublead_goodtau_pt",
+            "lead_sublead("
+                "Tau_pt[abs(Tau_eta) <= 2.1], "
+                "Tau_eta[abs(Tau_eta) <= 2.1], "
+                "Tau_phi[abs(Tau_eta) <= 2.1], "
+                "Tau_mass[abs(Tau_eta) <= 2.1]"
+            ")[0]").Define("lead_sublead_goodtau_eta", 
+            "lead_sublead("
+                "Tau_pt[abs(Tau_eta) <= 2.1], "
+                "Tau_eta[abs(Tau_eta) <= 2.1], "
+                "Tau_phi[abs(Tau_eta) <= 2.1], "
+                "Tau_mass[abs(Tau_eta) <= 2.1]"
+            ")[1]").Define("lead_sublead_goodtau_mass", 
+            "lead_sublead("
+                "Tau_pt[abs(Tau_eta) <= 2.1], "
+                "Tau_eta[abs(Tau_eta) <= 2.1], "
+                "Tau_phi[abs(Tau_eta) <= 2.1], "
+                "Tau_mass[abs(Tau_eta) <= 2.1]"
+            ")[2]").Define("lead_sublead_goodtau_phi", 
+            "lead_sublead("
+                "Tau_pt[abs(Tau_eta) <= 2.1], "
+                "Tau_eta[abs(Tau_eta) <= 2.1], "
+                "Tau_phi[abs(Tau_eta) <= 2.1], "
+                "Tau_mass[abs(Tau_eta) <= 2.1]"
+            ")[3]")
+
         branch_names = []
         for xx in range(*self.xx_range):
             name = "DoubleIsoTau{}er2p1".format(xx)
             df = df.Define(name, 
-                "lead_sublead_pt(Tau_pt[abs(Tau_eta) <= 2.1])[0] >= ({0} + {1}) "
-                "&& lead_sublead_pt(Tau_pt[abs(Tau_eta) <= 2.1])[1] >= ({0} + {2})".format(
+                "lead_sublead_goodtau_pt[0] >= ({0} + {1}) "
+                "&& lead_sublead_goodtau_pt[1] >= ({0} + {2})".format(
                     xx, 
                     self.dataset.get_aux("add_to_leading_pt"),
                     self.dataset.get_aux("add_to_subleading_pt")
@@ -202,60 +235,73 @@ class AddOffline(AddTrigger):
             )
             branch_names.append(name)
 
-        ROOT.gInterpreter.Declare("""
-            #include <TLorentzVector.h>
-            using Vfloat = const ROOT::RVec<float>&;      
-            ROOT::RVec<bool> maskDeltaR(Vfloat pt1, Vfloat eta1, Vfloat phi1, Vfloat mass1,
-                    Vfloat pt2, Vfloat eta2, Vfloat phi2, Vfloat mass2, float th_dr) {
-                ROOT::RVec<bool> mask;
-                for (size_t i = 0; i < pt1.size(); i++){
-                    TLorentzVector v1;
-                    v1.SetPtEtaPhiM(pt1[i], eta1[i], phi1[i], mass1[i]);
-                    bool bigger_deltar = true;
-                    for (size_t j = 0; j < pt2.size(); j++){
-                        TLorentzVector v2;
-                        v2.SetPtEtaPhiM(pt2[j], eta2[j], phi2[j], mass2[j]);
-                        float this_deltar = fabs(v1.DeltaR(v2));
-                        if (abs(this_deltar) < th_dr) bigger_deltar = false;
-                    }
-                    mask.push_back(bigger_deltar);
-                }
-                return mask;
-            }
-        """)
 
         for yy, zz in itertools.product(range(*self.yy_range), range(*self.zz_range)):
             # Using Reco Taus and Jets
             name = "DoubleIsoTau{}er2p1Jet{}dR0p5".format(yy, zz)
             df = df.Define(name,
-                "(lead_sublead_pt(Tau_pt[abs(Tau_eta) <= 2.1])[0] >= ({0} + {1}) "
-                "&& lead_sublead_pt(Tau_pt[abs(Tau_eta) <= 2.1])[1] >= ({0} + {2})) && "
-                "(Jet_pt["
-                    "(Jet_pt >= ({3} + {4})) && abs(Jet_eta) <= 4.7 && Jet_jetId == 2 "
+                # ask that the two taus have pt greater than yy (+ sth depending on the dataset)
+                "lead_sublead_goodtau_pt[0] >= ({0} + {1}) "
+                "&& lead_sublead_goodtau_pt[1] >= ({0} + {2})"
+                # regarding the jets, we require the offline reqs from the analysis +
+                # they are not matched to the leading and subleading taus we selected before
+                # first, ask for at least 1 jet with pt > zz (+ sth depending on the dataset)
+                "&& (Jet_pt["
+                    "(Jet_pt >= ({3} + {4})) && abs(Jet_eta) <= 4.7 && Jet_jetId >= 2 "
                     "&& ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))"
                     "&& maskDeltaR("
                         "Jet_pt, "
                         "Jet_eta, "
                         "Jet_phi, "
                         "Jet_pt, " # dum, not needed for deltaR, just for LV
-                        "Tau_pt[abs(Tau_eta) <= 2.1 && Tau_pt >= ({0} + {2})], "
-                        "Tau_eta[abs(Tau_eta) <= 2.1 && Tau_pt >= ({0} + {2})], "
-                        "Tau_phi[abs(Tau_eta) <= 2.1 && Tau_pt >= ({0} + {2})], "
-                        "Tau_pt[abs(Tau_eta) <= 2.1 && Tau_pt >= ({0} + {2})], " # dum
+                        "lead_sublead_goodtau_pt, "
+                        "lead_sublead_goodtau_eta, "
+                        "lead_sublead_goodtau_phi, "
+                        "lead_sublead_goodtau_mass, "
                         "0.5)"
-                    "].size() >= 1)".format(
+                    "].size() >= 1)"
+                # second ask for a minimum number of jets (depending on the category)
+                # with pt > 20 (+ sth depending on the dataset)
+                "&& (Jet_pt["
+                    "(Jet_pt >= (20 + {4})) && abs(Jet_eta) <= 4.7 && Jet_jetId >= 2 "
+                    "&& ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))"
+                    "&& maskDeltaR("
+                        "Jet_pt, "
+                        "Jet_eta, "
+                        "Jet_phi, "
+                        "Jet_pt, "
+                        "lead_sublead_goodtau_pt, "
+                        "lead_sublead_goodtau_eta, "
+                        "lead_sublead_goodtau_phi, "
+                        "lead_sublead_goodtau_mass, "
+                        "0.5)"
+                    "].size() >= {5})"
+                # third ask for a maximum number of jets (depending on the category)
+                # with pt > 20 (+ sth depending on the dataset)
+                "&& (Jet_pt["
+                    "(Jet_pt >= (20 + {4})) && abs(Jet_eta) <= 4.7 && Jet_jetId >= 2 "
+                    "&& ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))"
+                    "&& maskDeltaR("
+                        "Jet_pt, "
+                        "Jet_eta, "
+                        "Jet_phi, "
+                        "Jet_pt, "
+                        "lead_sublead_goodtau_pt, "
+                        "lead_sublead_goodtau_eta, "
+                        "lead_sublead_goodtau_phi, "
+                        "lead_sublead_goodtau_mass, "
+                        "0.5)"
+                    "].size() <= {6})".format(
                         yy, 
                         self.dataset.get_aux("add_to_leading_pt"),
                         self.dataset.get_aux("add_to_subleading_pt"),
                         zz,
-                        self.dataset.get_aux("add_to_jet", 10))
-                )
+                        self.dataset.get_aux("add_to_jet", 10),
+                        self.category.get_aux("nminjets", 2),
+                        self.category.get_aux("nmaxjets", 2)
+                    )
+            )
             branch_names.append(name)
-
-        # df = df.Define("nTrigTau", "TrigObj_pt[TrigObj_id == 15].size()")
-        # df = df.Define("TrigTau_pt", "TrigObj_pt[TrigObj_id == 15]")
-        # df = df.Define("TrigTau_eta", "TrigObj_eta[TrigObj_id == 15]")
-        # df = df.Define("TrigTau_phi", "TrigObj_phi[TrigObj_id == 15]")
 
         branch_list = ROOT.vector('string')()
         for branch_name in self.additional_branches + branch_names:
@@ -265,10 +311,6 @@ class AddOffline(AddTrigger):
 
 
 class ComputeRate(AddTrigger):
-
-    xx_range = (20, 40)
-    yy_range = (20, 40)
-    zz_range = (20, 150)
 
     additional_branches = [
         'nTaus', 'tauEt', 'tauEta', 'tauPhi', 'tauIso',
@@ -301,28 +343,6 @@ class ComputeRate(AddTrigger):
                 "].size() >= 2)".format(xx)
             )
             branch_names.append(name)
-
-        ROOT.gInterpreter.Declare("""
-            #include <TLorentzVector.h>
-            using Vfloat = const ROOT::RVec<float>&;      
-            ROOT::RVec<bool> maskDeltaR(Vfloat pt1, Vfloat eta1, Vfloat phi1, Vfloat mass1,
-                    Vfloat pt2, Vfloat eta2, Vfloat phi2, Vfloat mass2, float th_dr) {
-                ROOT::RVec<bool> mask;
-                for (size_t i = 0; i < pt1.size(); i++){
-                    TLorentzVector v1;
-                    v1.SetPtEtaPhiM(pt1[i], eta1[i], phi1[i], mass1[i]);
-                    bool bigger_deltar = true;
-                    for (size_t j = 0; j < pt2.size(); j++){
-                        TLorentzVector v2;
-                        v2.SetPtEtaPhiM(pt2[j], eta2[j], phi2[j], mass2[j]);
-                        float this_deltar = fabs(v1.DeltaR(v2));
-                        if (abs(this_deltar) < th_dr) bigger_deltar = false;
-                    }
-                    mask.push_back(bigger_deltar);
-                }
-                return mask;
-            }
-        """)
 
         for yy, zz in itertools.product(range(*self.yy_range), range(*self.zz_range)):
             # Using L1 Taus and Jets

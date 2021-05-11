@@ -64,6 +64,9 @@ action() {
     # create some dirs already
     mkdir -p "$CMT_TMP_DIR"
 
+    export CMT_TELEGRAM_TOKEN="${CMT_TELEGRAM_TOKEN:-}"
+    export CMT_TELEGRAM_CHAT="${CMT_TELEGRAM_CHAT:-}"
+
 
     #
     # helper functions
@@ -180,9 +183,10 @@ action() {
             cmt_pip_install flake8
             cmt_pip_install luigi==2.8.13
             cmt_pip_install git+https://gitlab.cern.ch/cms-phys-ciemat/analysis_tools.git
-            #cmt_pip_install --no-deps git+https://github.com/jaimeleonh/analysis_tools.git
+            cmt_pip_install git+https://gitlab.cern.ch/cms-phys-ciemat/plotting_tools.git
             cmt_pip_install --no-deps git+https://github.com/riga/law
             cmt_pip_install --no-deps gast==0.2.2  # https://github.com/tensorflow/autograph/issues/1
+            cmt_pip_install python-telegram-bot==12.3.0
         fi
 
         # gfal python bindings

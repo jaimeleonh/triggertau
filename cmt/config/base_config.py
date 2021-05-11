@@ -18,14 +18,18 @@ class Config():
         categories = [
             Category("base", "base category"),
             Category("bbtt", "bbtautau",
-                selection="lead_sublead_pt(Jet_pt)[0] > 20 && lead_sublead_pt(Jet_pt)[1] > 20"),
+                selection="Jet_pt[Jet_pt >= 20 && abs(Jet_eta) <= 4.7 && Jet_jetId >= 2 && ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))].size() >= 2", 
+                nminjets=2, nmaxjets=999),
             # H->tautau selection, extracted from cms.cern.ch/iCMS/jsp/openfile.jsp?tp=draft&files=AN2019_109_v17.pdf, L719
             Category("htt_0jet", "htt_0jet",
-                selection="Jet_pt[Jet_pt >= 30 && abs(Jet_eta) <= 4.7 && Jet_jetId == 2 && ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))].size() == 0"),
+                selection="Jet_pt[Jet_pt >= 30 && abs(Jet_eta) <= 4.7 && Jet_jetId >= 2 && ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))].size() >= 0", 
+                nminjets=0, nmaxjets=0),
             Category("htt_1jet", "htt_1jet",
-                selection="Jet_pt[Jet_pt >= 30 && abs(Jet_eta) <= 4.7 && Jet_jetId == 2 && ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))].size() == 1"),
+                selection="Jet_pt[Jet_pt >= 30 && abs(Jet_eta) <= 4.7 && Jet_jetId >= 2 && ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))].size() >= 1", 
+                nminjets=1, nmaxjets=1),
             Category("htt_2jet", "htt_2jet",
-                selection="Jet_pt[Jet_pt >= 30 && abs(Jet_eta) <= 4.7 && Jet_jetId == 2 && ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))].size() == 2")
+                selection="Jet_pt[Jet_pt >= 30 && abs(Jet_eta) <= 4.7 && Jet_jetId >= 2 && ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))].size() >= 2", 
+                nminjets=2, nmaxjets=999)
         ]
         return ObjectCollection(categories)
 
@@ -49,15 +53,22 @@ class Config():
                 # locate="ingrid-se04.cism.ucl.ac.be:1094/"),
             Dataset("ggf_sm",
                 "/eos/user/j/jleonhol/HH/ggf_2018_nanotest2/",
-                self.processes.get("ggf_sm")),
+                self.processes.get("ggf_sm"),
+                add_to_leading_pt=8,
+                add_to_subleading_pt=8,
+                add_to_jet_pt=0),
             Dataset("ggf_lo",
                 "/eos/home-j/jleonhol/HH/ggf_lo/",
-                self.processes.get("ggf_lo")),
+                self.processes.get("ggf_lo"),
+                add_to_leading_pt=8,
+                add_to_subleading_pt=8,
+                add_to_jet_pt=0),
             Dataset("htautau_ggf",
                 "/eos/user/j/jleonhol/HH/htautau_ggf/",
                 self.processes.get("htautau_ggf"),
                 add_to_leading_pt=18,
-                add_to_subleading_pt=8),
+                add_to_subleading_pt=8,
+                add_to_jet_pt=10),
             Dataset("data_dum",
                 "/store/data/Run2018A/Tau/NANOAOD/02Apr2020-v1/",
                 self.processes.get("data_tau"),
