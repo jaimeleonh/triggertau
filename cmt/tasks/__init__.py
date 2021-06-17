@@ -1,2 +1,4 @@
-from trigger import AddTrigger
-from plotting import PlotAcceptance
+from trigger import *
+from plotting import *
+from dijetplotting import *
+from totalplotting import *
