@@ -1,7 +1,7 @@
 # Installation (on lxplus)
 
 ```
-git clone https://gitlab.cern.ch/jaimeleonh/triggertau.git
+git clone https://gitlab.cern.ch/jaimeleonh/triggertau.git -b tautrigger
 cd triggertau
 source setup.sh
 law index --verbose
