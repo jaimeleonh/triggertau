@@ -25,15 +25,8 @@ class PlotTotalAcceptance(PlotAcceptance):
     yyp_range = AddDiJetTrigger.yy_range
     zzp_range = AddDiJetTrigger.zz_range
 
-    # regions not supported
-    region_name = None
-    tree_name = "Events"
-    
     def __init__(self, *args, **kwargs):
         super(PlotTotalAcceptance, self).__init__(*args, **kwargs)
-
-    #def create_branch_map(self):
-        #return len(self.dataset.get_files())
 
     def workflow_requires(self):
         return {

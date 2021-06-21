@@ -10,7 +10,7 @@ from analysis_tools.utils import (
 from plotting_tools.root.labels import get_labels
 
 from cmt.base_tasks.base import ( 
-    DatasetTaskWithCategory, DatasetWrapperTask, HTCondorWorkflow,
+    DatasetTaskWithCategory, DatasetWrapperTask, HTCondorWorkflow, InputData,
     ConfigTask, ConfigTaskWithCategory, 
 )
 from cmt.tasks.trigger import (
@@ -30,6 +30,8 @@ class PlotAcceptance(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflo
     # regions not supported
     region_name = None
     tree_name = "Events"
+
+    default_store = "$CMT_STORE_EOS_CATEGORIZATION"
     
     def __init__(self, *args, **kwargs):
         super(PlotAcceptance, self).__init__(*args, **kwargs)
@@ -151,7 +153,7 @@ class PlotAcceptance(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflo
 
 
 class Plot2D(DatasetTaskWithCategory):
-    
+
     xx_range = law.CSVParameter(default=("32", "40"))
 
     def __init__(self, *args, **kwargs):
@@ -642,146 +644,51 @@ class Plot2DLimitRate(Plot2D, RateTask):
             json.dump(dict_to_output, f, indent=4)
 
 
-# class MapAcceptance(Plot2DLimitRate):
-    # min_rate = luigi.FloatParameter(default=0., description="min allowed rate "
-        # "default: 0")
-    # max_rate = luigi.FloatParameter(default=0., description="max allowed rate "
-        # "default: 20")
-    # min_acceptance = luigi.FloatParameter(default=0., description="min allowed acceptance "
-        # "default: 0.7")
-    # max_acceptance = luigi.FloatParameter(default=0., description="max allowed acceptance "
-        # "default: 2.")
-    
-    # rate_threshold = None
-    # rate_low_percentage = None
-    # x_title = "DoubleIsoTauXX OR DoubleIsoTauYYJetZZ Rate (kHz)"
-    # y_title = "Acceptance gain w.r.t DoubleIsoTau32"
-
-    # def output(self):
-        # outputs = {
-            # "plot": self.local_target("map.pdf"),
-            # "json": self.local_target("map.json"),
-        # }
-        # return outputs
-    
-    
-    # @law.decorator.notify
-    # def run(self):
-        # from copy import deepcopy
-        # import json
-        # from collections import OrderedDict
-
-        # ROOT = import_root()
-        # ROOT.gStyle.SetOptStat(0)
-        # ROOT.gStyle.SetPaintTextFormat("3.2f")
-        # inputs = self.input()
-        # output = self.output()
-        # den = 0
-
-        # nbinsX = self.ranges[0][1] - self.ranges[0][0]
-        # nbinsY = self.ranges[1][1] - self.ranges[1][0]
-        # nbinsZ = self.ranges[2][1] - self.ranges[2][0]
-        # hmodel = ("histo3D", "; XX; YY; ZZ",
-            # nbinsX, self.ranges[0][0], self.ranges[0][1],
-            # nbinsY, self.ranges[1][0], self.ranges[1][1],
-            # nbinsZ, self.ranges[2][0], self.ranges[2][1],
-        # )
-        # histo = ROOT.TH3F(*hmodel)
-        # for i, inp in enumerate(inputs["acceptance"].values()):
-            # for elem in inp.collection.targets.values():
-                # rootfile = ROOT.TFile.Open(elem["root"].path)
-                # histo.Add(rootfile.Get("histo").Clone())
-                # rootfile.Clone()
-                # jsonfile = elem["stats"].path
-                # if i == 0:
-                    # with open(jsonfile) as f:
-                        # d = json.load(f)
-                    # den += d["den"]
-
-        # with open(inputs["rate"][self.rate_stats_name].path) as f: 
-            # rates = json.load(f)
-
-        # import matplotlib
-        # matplotlib.use("Agg") 
-        # from matplotlib import pyplot as plt
-        
-        # acceptances_to_plot = []
-        # rates_to_plot = []
-        # parameters = []
-        # for xx, yy, zz in itertools.product(range(*self.ranges[0]), range(*self.ranges[1]), range(*self.ranges[2])):
-            # if (rates["{}, {}, {}".format(xx, yy, zz)] > self.max_rate
-                    # or rates["{}, {}, {}".format(xx, yy, zz)] < self.min_rate):
-                # continue
-            # acceptance = histo.GetBinContent(
-                # xx - self.ranges[0][0] + 1, yy - self.ranges[1][0] + 1, zz - self.ranges[2][0] + 1
-            # ) / float(den)
-
-            # if acceptance < self.min_acceptance or acceptance > self.max_acceptance:
-                # continue
-
-            # rates_to_plot.append(rates["{}, {}, {}".format(xx, yy, zz)])
-            # acceptances_to_plot.append(acceptance)
-            # parameters.append("{}, {}, {}".format(xx, yy, zz))
-            
-        # ax = plt.subplot()
-        # plt.plot(rates_to_plot, acceptances_to_plot, 'bo')
-        # for (x, y, label) in zip(rates_to_plot, acceptances_to_plot, parameters):
-            # plt.annotate(label, # this is the text
-                 # (x, y), # this is the point to label
-                 # textcoords="offset points", # how to position the text
-                 # xytext=(0, 10), # distance from text to points (x,y)
-                 # ha='center', # horizontal alignment can be left, right or center
-                 # size=5) 
-        # plt.xlabel(self.x_title)
-        # plt.ylabel(self.y_title)
-        
-        # x_text=0.05
-        # y_text=0.9
-        
-        # plt.text(x_text, 1.02, "CMS", fontsize='large', fontweight='bold', transform=ax.transAxes)
-        # upper_text = "private work"
-        # plt.text(x_text + 0.1, 1.02, upper_text, transform=ax.transAxes)
-        # text = [self.dataset.process.label.latex, self.category.label.latex]
-        # for t in text:
-            # plt.text(x_text, y_text, t, transform=ax.transAxes)
-            # y_text -= 0.05
-        # #plt.rc('text', usetex=True)
-        # plt.savefig(create_file_dir(output["plot"].path))
-        # with open(create_file_dir(output["json"].path), "w") as f:
-            # json.dump(dict(zip(parameters, zip(rates_to_plot, acceptances_to_plot))), f, indent=4)
-
-
 class MapAcceptance(RateTask, DatasetWrapperTask):
     min_rate = luigi.FloatParameter(default=0., description="min allowed rate "
         "default: 0")
     max_rate = luigi.FloatParameter(default=20., description="max allowed rate "
         "default: 20")
-    acceptance_ranges = law.CSVParameter(default=(1.,2.), description="allowed acceptance ranges, "
-        "default: (1.,2.)")
+    acceptance_ranges = law.CSVParameter(default=(1.,1.), description="allowed acceptance ranges, "
+        "default: (1.,1.)")
     category_names = law.CSVParameter(default=(), description="names or name "
         "patterns of categories to use, uses all datasets when empty, default: ()")
     acceptance_version = luigi.Parameter(default="version", description="acceptance version, "
         "default: version")
     only_available_branches = luigi.BoolParameter(default=False, description="whether to run only "
         "using the available branche sinstead of producing all the required ones, default: False")
-    
+    xx_fixed = luigi.FloatParameter(default=-1., description="whether to show results "
+        "only for 1 specific xx value, default: -1")
+    yy_fixed = luigi.FloatParameter(default=-1., description="whether to show results "
+        "only for 1 specific yy value, default: -1")
+    zz_fixed = luigi.FloatParameter(default=-1., description="whether to show results "
+        "only for 1 specific zz value, default: -1")
+    npoints = luigi.IntParameter(default=-1, description="how many points to show in the plots "
+        "default: -1 (All)")
+
     xx_range = Plot2D.xx_range
     
     rate_title = "DoubleIsoTauXX OR DoubleIsoTauYYJetZZ Rate (kHz)"
-    acceptance_title = "acceptance gain"
-    #acceptance_title = "acceptance gain w.r.t DoubleIsoTau32"
+    acceptance_title = "Acceptance gain"
+
     rate_stats_name = "ditaujet_or_stats"
+    histo_name = "histo"
 
     def __init__(self, *args, **kwargs):
         super(MapAcceptance, self).__init__(*args, **kwargs)
         assert len(self.acceptance_ranges) % 2 == 0
         self.acceptance_ranges = [
-            (float(self.acceptance_ranges[i]), float(self.acceptance_ranges[i + 1]))
+            [float(self.acceptance_ranges[i]), float(self.acceptance_ranges[i + 1])]
             for i in range(0, len(self.acceptance_ranges), 2)]
-        assert len(self.acceptance_ranges) == len(self.datasets)
+        assert len(self.acceptance_ranges) == len(self.datasets) or len(self.acceptance_ranges) == 1
+        if len(self.acceptance_ranges) == 1:
+            if self.acceptance_ranges[0][0] == 1 and self.acceptance_ranges[0][1] == 1:
+                self.acceptance_ranges[0][0] = None
+                self.acceptance_ranges[0][1] = None
+            self.acceptance_ranges = [self.acceptance_ranges[0]
+                for i in range(len(self.datasets))]
 
         self.categories = [self.config.categories.get(cat_name) for cat_name in self.category_names]
-
         assert len(self.categories) == len(self.datasets) or len(self.categories) == 1
         if len(self.categories) == 1:
             self.categories = [self.categories[0] for i in range(len(self.datasets))]
@@ -792,9 +699,11 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
     def requires(self):
         reqs = {}
         for dataset, category in zip(self.datasets, self.categories):
+            postfix = "{}_{}".format(dataset.name, category.name)
+            reqs["acceptance_%s" % postfix] = {}
             available_branches = len(dataset.get_files())
-            branches = []
             if self.only_available_branches:
+                branches = []
                 for i in range(available_branches):
                     ok = True
                     for xx in range(*self.xx_range):
@@ -804,15 +713,15 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
                             ok = False
                     if ok:
                         branches.append(i)
+                for xx in range(*self.xx_range):
+                    reqs["acceptance_%s" % postfix][xx] = PlotAcceptance.req(self,
+                        version="{}_{}".format(self.acceptance_version, xx), dataset_name=dataset.name,
+                        category_name=category.name, xx_range=(xx, xx + 1), branches=branches)
             else:
-                branches = range(available_branches)
-
-            postfix = "{}_{}".format(dataset.name, category.name)
-            reqs["acceptance_%s" % postfix] = {}
-            for xx in range(*self.xx_range):
-                reqs["acceptance_%s" % postfix][xx] = PlotAcceptance.req(self,
-                    version="{}_{}".format(self.acceptance_version, xx), dataset_name=dataset.name,
-                    category_name=category.name, xx_range=(xx, xx + 1), branches=branches)
+                for xx in range(*self.xx_range):
+                    reqs["acceptance_%s" % postfix][xx] = PlotAcceptance.req(self,
+                        version="{}_{}".format(self.acceptance_version, xx), dataset_name=dataset.name,
+                        category_name=category.name, xx_range=(xx, xx + 1))
         reqs["rate"] = Plot2DRate.req(self, version=self.rate_version,
             dataset_name=self.rate_dataset_name, category_name=self.rate_category_name)
         return reqs
@@ -821,14 +730,23 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
         outputs = {}
         for dataset, category in zip(self.datasets, self.categories):
             postfix = "{}_{}".format(dataset.name, category.name)
-            outputs["plot_rate_%s" % postfix] = self.local_target("rate_vs_%s.pdf" % postfix)
-            outputs["json_rate_%s" % postfix] = self.local_target("rate_vs_%s.json" % postfix)
+            save_postfix = postfix
+            if self.xx_fixed != -1:
+                save_postfix += "_xx_" + str(self.xx_fixed)
+            if self.yy_fixed != -1:
+                save_postfix += "_yy_" + str(self.yy_fixed)
+            if self.zz_fixed != -1:
+                save_postfix += "_zz_" + str(self.zz_fixed)
+
+            outputs["plot_rate_%s" % postfix] = self.local_target("rate_vs_%s.pdf" % save_postfix)
+            outputs["json_rate_%s" % postfix] = self.local_target("rate_vs_%s.json" % save_postfix)
+
         for i in range(len(self.datasets) - 1):
             for j in range(i + 1, len(self.datasets)):
                 postfix = "{}_{}_{}_{}".format(self.datasets[i].name, self.categories[i].name,
                     self.datasets[j].name, self.categories[j].name)
-                outputs["plot_%s" % postfix] = self.local_target("acceptance_%s.pdf" % postfix)
-                outputs["json_%s" % postfix] = self.local_target("acceptance_%s.json" % postfix)
+                outputs["plot_%s" % postfix] = self.local_target("acceptance_%s.pdf" % save_postfix)
+                outputs["json_%s" % postfix] = self.local_target("acceptance_%s.json" % save_postfix)
             
         return outputs
 
@@ -866,7 +784,7 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
             for i, inp in enumerate(inputs["acceptance_%s" % postfix].values()):
                 for elem in inp.collection.targets.values():
                     rootfile = ROOT.TFile.Open(elem["root"].path)
-                    histos[(dataset, category)].Add(rootfile.Get("histo").Clone())
+                    histos[(dataset, category)].Add(rootfile.Get(self.histo_name).Clone())
                     rootfile.Clone()
                     jsonfile = elem["stats"].path
                     if i == 0:
@@ -884,25 +802,32 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
         acceptances_to_plot = OrderedDict()
         for dataset, category in zip(self.datasets, self.categories):
             acceptances_to_plot[(dataset, category)] = []
-        
-        rates_to_plot = []
-        parameters = []
-        for xx, yy, zz in itertools.product(range(*self.ranges[0]), range(*self.ranges[1]), range(*self.ranges[2])):
+
+        for xx, yy, zz in itertools.product(range(*self.ranges[0]),
+                range(*self.ranges[1]), range(*self.ranges[2])):
+            if self.xx_fixed != -1 and self.xx_fixed != xx:
+                continue
+            if self.yy_fixed != -1 and self.yy_fixed != yy:
+                continue
+            if self.zz_fixed != -1 and self.zz_fixed != zz:
+                continue
+
             if (rates["{}, {}, {}".format(xx, yy, zz)] > self.max_rate
                     or rates["{}, {}, {}".format(xx, yy, zz)] < self.min_rate):
                 continue
-            rates_to_plot.append(rates["{}, {}, {}".format(xx, yy, zz)])
-            parameters.append("{}, {}, {}".format(xx, yy, zz))
+            rate = rates["{}, {}, {}".format(xx, yy, zz)]
+            parameters = "{}, {}, {}".format(xx, yy, zz)
             for dataset, category in zip(self.datasets, self.categories):
                 acceptance = histos[(dataset, category)].GetBinContent(
-                    xx - self.ranges[0][0] + 1, yy - self.ranges[1][0] + 1, zz - self.ranges[2][0] + 1
+                    xx - self.ranges[0][0] + 1,
+                    yy - self.ranges[1][0] + 1,
+                    zz - self.ranges[2][0] + 1
                 ) / float(den[(dataset, category)])
 
                 # if acceptance < self.min_acceptance or acceptance > self.max_acceptance:
                 #     continue
-                acceptances_to_plot[(dataset, category)].append(acceptance)
-        
-        
+                acceptances_to_plot[(dataset, category)].append((parameters, rate, acceptance))
+
         def plot(xaxis, yaxis, parameters, x_title, y_title, min_x, max_x, min_y, max_y, save_path):      
             ax = plt.subplot()
             plt.plot(xaxis, yaxis, 'bo')
@@ -939,26 +864,35 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
 
         for dataset, category, ranges in zip(self.datasets, self.categories,
                 self.acceptance_ranges):
-                
-            bigger = len([acc for acc in acceptances_to_plot[(dataset, category)]
-                if acc > ranges[1]])
-            smaller = len([acc for acc in acceptances_to_plot[(dataset, category)]
-                if acc < ranges[0]])
+            # order by acceptance
+            acceptances_sorted = deepcopy(acceptances_to_plot[(dataset, category)])
+            acceptances_sorted.sort(key=lambda x:x[2], reverse=True)
+
+            parameters = [x[0] for x in acceptances_sorted]
+            rates = [x[1] for x in acceptances_sorted]
+            acceptances = [x[2] for x in acceptances_sorted]
+
+            bigger = len([acc for acc in acceptances if acc > ranges[1]])
+            smaller = len([acc for acc in acceptances if acc < ranges[0]])
 
             print "({}, {}) -> >{}:{}, <{}:{}".format(dataset.name, category.name,
                 ranges[1], bigger, ranges[0], smaller)
-                
+
             postfix = "{}_{}".format(dataset.name, category.name)
-            plot(rates_to_plot, acceptances_to_plot[(dataset, category)], parameters,
+            with open(create_file_dir(output["json_rate_%s" % postfix].path), "w") as f:
+                json.dump(dict(zip(parameters, zip(rates, acceptances))), f, indent=4)
+            if self.npoints != -1:
+                parameters = parameters[:self.npoints]
+                rates = rates[:self.npoints]
+                acceptances = acceptances[:self.npoints]
+
+            plot(rates, acceptances, parameters,
                 self.rate_title, self.acceptance_title + " ({}, {})".format(
                     dataset.process.label.latex, category.label.latex),
                 None, None, ranges[0], ranges[1], output["plot_rate_%s" % postfix].path)
-            with open(create_file_dir(output["json_rate_%s" % postfix].path), "w") as f:
-                json.dump(dict(zip(parameters,
-                    zip(rates_to_plot, acceptances_to_plot[(dataset, category)]))), f, indent=4)
-        
+
         print "\n***********************************\n"
-        
+
         for i in range(len(self.datasets) - 1):
             for j in range(i + 1, len(self.datasets)):
                 (dataset_1, category_1, ranges_1) = (self.datasets[i],
@@ -968,20 +902,27 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
                 postfix = "{}_{}_{}_{}".format(dataset_1.name, category_1.name,
                     dataset_2.name, category_2.name)
 
-                plot(acceptances_to_plot[(dataset_1, category_1)],
-                    acceptances_to_plot[(dataset_2, category_2)], parameters,
+                acceptances_sorted = [(x[0], x[1], x[2], y[2]) for x, y in zip(
+                    acceptances_to_plot[(dataset_1, category_1)],
+                    acceptances_to_plot[(dataset_2, category_2)])]
+                acceptances_sorted.sort(key=lambda x:x[2] + x[3], reverse=True)
+                acceptances_1 = [x[2] for x in acceptances_sorted]
+                acceptances_2 = [x[3] for x in acceptances_sorted]
+                parameters = [x[0] for x in acceptances_sorted]
+
+                with open(create_file_dir(output["json_%s" % postfix].path), "w") as f:
+                    json.dump(dict(zip(parameters, zip(acceptances_1, acceptances_2))), f, indent=4)
+                if self.npoints != -1:
+                    acceptances_1 = acceptances_1[:self.npoints]
+                    acceptances_2 = acceptances_2[:self.npoints]
+                    acceptances_parameters = parameters[:self.npoints]
+
+                plot(acceptances_1, acceptances_2, parameters,
                     self.acceptance_title + " ({}, {})".format(
                         dataset_1.process.label.latex, category_1.label.latex),
                     self.acceptance_title + " ({}, {})".format(
                         dataset_2.process.label.latex, category_2.label.latex),
                     ranges_1[0], ranges_1[1], ranges_2[0], ranges_2[1], output["plot_%s" % postfix].path)
-
-                with open(create_file_dir(output["json_%s" % postfix].path), "w") as f:
-                    json.dump(dict(zip(parameters,
-                        zip(acceptances_to_plot[(dataset_1, category_1)],
-                            acceptances_to_plot[(dataset_2, category_2)]))),
-                            f, indent=4)
-
 
 
 class DecoAcceptance(Plot2D):
@@ -1079,9 +1020,10 @@ class PlotNanoAODStuff(DatasetTaskWithCategory):
 
     def output(self):
         output = {}
-        output["pt"] = self.local_target("jet_pt.pdf")
-        output["pt_er2p5"] = self.local_target("jet_pt_er2p5.pdf")
-        output["eta"] = self.local_target("jet_eta.pdf")
+        output["tau_pt"] = self.local_target("tau_pt.pdf")
+        output["jet_pt"] = self.local_target("jet_pt.pdf")
+        output["jet_pt_er2p5"] = self.local_target("jet_pt_er2p5.pdf")
+        output["jet_eta"] = self.local_target("jet_eta.pdf")
         return output
 
     def add_to_root(self, root):
@@ -1136,8 +1078,14 @@ class PlotNanoAODStuff(DatasetTaskWithCategory):
 
         ROOT = self.add_to_root(ROOT)
         df = self.add_dataframe_definitions(df)
-        
+
         hmodel = ("jet_pt", "; pt [GeV]; Events / 4 GeV", 20, 20, 100)
+
+        leading_tau_pt = df.Define("leading_tau_pt",
+            "lead_sublead_goodl1tau_pt[0]").Histo1D(hmodel, "leading_tau_pt")
+        subleading_tau_pt = df.Define("subleading_tau_pt",
+            "lead_sublead_goodl1tau_pt[1]").Histo1D(hmodel, "subleading_tau_pt")
+
         leading_pt = df.Define("leading_pt",
             "lead_sublead_goodl1jet_pt[0]").Histo1D(hmodel, "leading_pt")
         subleading_pt = df.Define("subleading_pt",
@@ -1153,9 +1101,10 @@ class PlotNanoAODStuff(DatasetTaskWithCategory):
         subleading_eta = df.Define("subleading_eta", "lead_sublead_goodl1jet_eta[1]").Histo1D(hmodel, "subleading_eta")
         
         name_plots = [
-            ("pt", (leading_pt, subleading_pt)),
-            ("pt_er2p5", (leading_pt_er2p5, subleading_pt_er2p5)),
-            ("eta", (leading_eta, subleading_eta))
+            ("tau_pt", (leading_tau_pt, subleading_tau_pt)),
+            ("jet_pt", (leading_pt, subleading_pt)),
+            ("jet_pt_er2p5", (leading_pt_er2p5, subleading_pt_er2p5)),
+            ("jet_eta", (leading_eta, subleading_eta))
         ]
         
         for name, plots in name_plots:
@@ -1165,8 +1114,8 @@ class PlotNanoAODStuff(DatasetTaskWithCategory):
             subleading = plots[1].Clone()
             leading.SetLineColor(ROOT.kBlue)
             subleading.SetLineColor(ROOT.kRed)
-            leg.AddEntry(leading, "Leading L1 jet", "l")
-            leg.AddEntry(subleading, "Subleading L1 jet", "l")
+            leg.AddEntry(leading, "Leading L1 " + ("jet" if "jet" in name else "#tau"), "l")
+            leg.AddEntry(subleading, "Subleading L1 " + ("jet" if "jet" in name else "#tau"), "l")
 
             if leading_pt.GetMaximum() < subleading_pt.GetMaximum():
                 subleading.Draw()

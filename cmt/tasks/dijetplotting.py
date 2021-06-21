@@ -17,7 +17,7 @@ from cmt.tasks.trigger import (
 )
 
 from cmt.tasks.plotting import (
-    PlotAcceptance, Plot2D, Plot2DLimitRate
+    PlotAcceptance, Plot2D, Plot2DLimitRate, MapAcceptance
 )
 
 
@@ -30,6 +30,8 @@ class PlotDiJetAcceptance(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWo
     # regions not supported
     region_name = None
     tree_name = "Events"
+
+    default_store = "$CMT_STORE_EOS_CATEGORIZATION"
     
     def __init__(self, *args, **kwargs):
         super(PlotDiJetAcceptance, self).__init__(*args, **kwargs)
@@ -458,6 +460,50 @@ class PlotDiJet2DLimitRate(Plot2DLimitRate):
         for xx in range(*self.xx_range):
             reqs["acceptance"][xx] = PlotDiJetAcceptance.req(self,
                 version="{}_{}".format(self.version, xx), xx_range=(xx, xx + 1))
+        reqs["rate"] = PlotDiJet2DRate.req(self, version=self.rate_version,
+            dataset_name=self.rate_dataset_name, category_name=self.rate_category_name)
+        return reqs
+
+
+class MapDiJetAcceptance(MapAcceptance):
+    xx_range = PlotDiJet2D.xx_range
+
+    rate_title = "DoubleIsoTauXX OR DoubleIsoTauYYDoubleJetZZ Rate (kHz)"
+    acceptance_title = "Acceptance gain"
+
+    histo_name = "histo"
+    rate_stats_name = "ditau_ditau_dijet_or_stats"
+
+    def __init__(self, *args, **kwargs):
+        super(MapDiJetAcceptance, self).__init__(*args, **kwargs)
+        self.ranges = [self.xx_range, PlotDiJetAcceptance.yy_range, PlotDiJetAcceptance.zz_range]
+
+    def requires(self):
+        reqs = {}
+        for dataset, category in zip(self.datasets, self.categories):
+            postfix = "{}_{}".format(dataset.name, category.name)
+            reqs["acceptance_%s" % postfix] = {}
+            available_branches = len(dataset.get_files())
+            if self.only_available_branches:
+                branches = []
+                for i in range(available_branches):
+                    ok = True
+                    for xx in range(*self.xx_range):
+                        if not PlotDiJetAcceptance.req(self,
+                                version="{}_{}".format(self.acceptance_version, xx), dataset_name=dataset.name,
+                                category_name=category.name, xx_range=(xx, xx + 1), branch=i).complete():
+                            ok = False
+                    if ok:
+                        branches.append(i)
+                for xx in range(*self.xx_range):
+                    reqs["acceptance_%s" % postfix][xx] = PlotDiJetAcceptance.req(self,
+                        version="{}_{}".format(self.acceptance_version, xx), dataset_name=dataset.name,
+                        category_name=category.name, xx_range=(xx, xx + 1), branches=branches)
+            else:
+                for xx in range(*self.xx_range):
+                    reqs["acceptance_%s" % postfix][xx] = PlotDiJetAcceptance.req(self,
+                        version="{}_{}".format(self.acceptance_version, xx), dataset_name=dataset.name,
+                        category_name=category.name, xx_range=(xx, xx + 1))
         reqs["rate"] = PlotDiJet2DRate.req(self, version=self.rate_version,
             dataset_name=self.rate_dataset_name, category_name=self.rate_category_name)
         return reqs

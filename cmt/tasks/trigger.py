@@ -682,3 +682,55 @@ class ComputeDiJetRate(ComputeRate):
             branch_list.push_back(branch_name)
 
         df.Snapshot(self.tree_name, create_file_dir(output_file), branch_list)
+
+
+class ComputeAsymRate(ComputeRate):
+
+    xx_range = (32, 40)
+    yy_range = (20, 33)
+    zz_range = (20, 160)
+
+    def get_new_dataframe(self, input_file, output_file):
+        from analysis_tools.utils import (
+            import_root, create_file_dir, join_root_selection
+        )
+        import itertools
+        ROOT = import_root()
+        ROOT = self.add_to_root(ROOT)
+
+        df = ROOT.RDataFrame(self.tree_name, input_file)
+
+        # add the needed definitions
+        df = self.add_dataframe_definitions(df)
+
+        if self.category.selection:
+            df = df.Filter(self.category.selection)
+
+        branch_names = []
+        for xx in range(*self.xx_range):
+            name = "DoubleIsoTau{}er2p1".format(xx)
+            df = df.Define(name,
+                "(tauEt["
+                    "abs(tauEta) <= 2.1 "
+                    "&& tauIso == 1 "
+                    "&& tauBx == 0 "
+                    "&& tauEt >= {} "
+                "].size() >= 2)".format(xx)
+            )
+            branch_names.append(name)
+
+        for yy, zz in itertools.product(range(*self.yy_range), range(*self.zz_range)):
+            for yyp in range(self.yy_range[0], yy + 1):
+                # Using L1 Taus and Jets
+                name = "IsoTau{0}IsoTau{1}er2p1Jet{2}dR0p5".format(yy, yyp, zz)
+                df = df.Define(name,
+                    "lead_sublead_goodl1tau_pt[0] >= {0} "
+                    "&& lead_sublead_goodl1tau_pt[1] >= {1}"
+                    "&& lead_sublead_goodl1jet_pt[0] >= {2}".format(yy, yyp, zz))
+                branch_names.append(name)
+
+        branch_list = ROOT.vector('string')()
+        for branch_name in self.additional_branches + branch_names:
+            branch_list.push_back(branch_name)
+
+        df.Snapshot(self.tree_name, create_file_dir(output_file), branch_list)
