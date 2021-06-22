@@ -28,7 +28,7 @@ class Config():
             Category("htt_1jet", Label(root="1 jet cat."),
                 selection="Jet_pt[Jet_pt >= 30 && abs(Jet_eta) <= 4.7 && Jet_jetId >= 2 && ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))].size() >= 1", 
                 nminjets=1, nmaxjets=1, add_to_jet_pt=10, add_to_leading_pt=8, add_to_subleading_pt=8),
-            Category("htt_1jet_highPt", Label(root="1 jet, High pt cat.,"),
+            Category("htt_1jet_highPt", Label(root="1 jet, High pt cat."),
                 selection="Jet_pt[Jet_pt >= 70 && abs(Jet_eta) <= 4.7 && Jet_jetId >= 2 && ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))].size() >= 1", 
                 nminjets=1, nmaxjets=1, add_to_jet_pt=50, add_to_leading_pt=8, add_to_subleading_pt=8),
             Category("htt_2jet", Label(root="2 jet cat."),
