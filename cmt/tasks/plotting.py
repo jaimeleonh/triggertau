@@ -14,7 +14,7 @@ from cmt.base_tasks.base import (
     ConfigTask, ConfigTaskWithCategory, 
 )
 from cmt.tasks.trigger import (
-    AddTrigger, AddOffline, ComputeRate
+    AddTrigger, AddOffline, ComputeRate, ComputeAsymRate
 )
 
 
@@ -510,6 +510,7 @@ class Plot2DRate(DatasetTaskWithCategory):
                     c.SaveAs(create_file_dir(output[histoname][(label, val)].path))
                     del histo2D, c
 
+
 class RateTask():
     rate_version = luigi.Parameter(description="version of outputs to produce")
     rate_dataset_name = luigi.Parameter(description="dataset name used for rate studies",
@@ -726,18 +727,21 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
             dataset_name=self.rate_dataset_name, category_name=self.rate_category_name)
         return reqs
 
+    def get_postfix(self, postfix):
+        save_postfix = postfix
+        if self.xx_fixed != -1:
+            save_postfix += "_xx_" + str(self.xx_fixed)
+        if self.yy_fixed != -1:
+            save_postfix += "_yy_" + str(self.yy_fixed)
+        if self.zz_fixed != -1:
+            save_postfix += "_zz_" + str(self.zz_fixed)
+        return save_postfix
+
     def output(self):
         outputs = {}
         for dataset, category in zip(self.datasets, self.categories):
             postfix = "{}_{}".format(dataset.name, category.name)
-            save_postfix = postfix
-            if self.xx_fixed != -1:
-                save_postfix += "_xx_" + str(self.xx_fixed)
-            if self.yy_fixed != -1:
-                save_postfix += "_yy_" + str(self.yy_fixed)
-            if self.zz_fixed != -1:
-                save_postfix += "_zz_" + str(self.zz_fixed)
-
+            save_postfix = self.get_postfix(postfix)
             outputs["plot_rate_%s" % postfix] = self.local_target("rate_vs_%s.pdf" % save_postfix)
             outputs["json_rate_%s" % postfix] = self.local_target("rate_vs_%s.json" % save_postfix)
 
@@ -752,6 +756,41 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
 
 #    def complete(self):
 #        return ConfigTask
+
+    def plot(self, xaxis, yaxis, parameters, x_title, y_title, min_x, max_x, min_y, max_y, save_path):
+        import matplotlib
+        matplotlib.use("Agg")
+        from matplotlib import pyplot as plt
+        ax = plt.subplot()
+        plt.plot(xaxis, yaxis, 'bo')
+        for (x, y, label) in zip(xaxis, yaxis, parameters):
+            plt.annotate(label, # this is the text
+                 (x, y), # this is the point to label
+                 textcoords="offset points", # how to position the text
+                 xytext=(0, 10), # distance from text to points (x,y)
+                 ha='center', # horizontal alignment can be left, right or center
+                 size=5)
+        plt.xlabel(x_title)
+        plt.ylabel(y_title)
+
+        x_text=0.05
+        y_text=0.9
+        plt.text(x_text, 1.02, "CMS", fontsize='large', fontweight='bold',
+            transform=ax.transAxes)
+        upper_text = "private work"
+        plt.text(x_text + 0.1, 1.02, upper_text, transform=ax.transAxes)
+        # text = [self.dataset.process.label.latex, self.category.label.latex]
+        # for t in text:
+            # plt.text(x_text, y_text, t, transform=ax.transAxes)
+            # y_text -= 0.05
+
+        if min_x and max_x:
+            ax.set_xlim(min_x, max_x)
+        if min_y and max_y:
+            ax.set_ylim(min_y, max_y)
+
+        plt.savefig(create_file_dir(save_path))
+        plt.close('all')
 
     @law.decorator.notify
     def run(self):
@@ -828,38 +867,6 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
                 #     continue
                 acceptances_to_plot[(dataset, category)].append((parameters, rate, acceptance))
 
-        def plot(xaxis, yaxis, parameters, x_title, y_title, min_x, max_x, min_y, max_y, save_path):      
-            ax = plt.subplot()
-            plt.plot(xaxis, yaxis, 'bo')
-            for (x, y, label) in zip(xaxis, yaxis, parameters):
-                plt.annotate(label, # this is the text
-                     (x, y), # this is the point to label
-                     textcoords="offset points", # how to position the text
-                     xytext=(0, 10), # distance from text to points (x,y)
-                     ha='center', # horizontal alignment can be left, right or center
-                     size=5) 
-            plt.xlabel(x_title)
-            plt.ylabel(y_title)
-
-            x_text=0.05
-            y_text=0.9
-            plt.text(x_text, 1.02, "CMS", fontsize='large', fontweight='bold',
-                transform=ax.transAxes)
-            upper_text = "private work"
-            plt.text(x_text + 0.1, 1.02, upper_text, transform=ax.transAxes)
-            # text = [self.dataset.process.label.latex, self.category.label.latex]
-            # for t in text:
-                # plt.text(x_text, y_text, t, transform=ax.transAxes)
-                # y_text -= 0.05
-
-            if min_x and max_x:
-                ax.set_xlim(min_x, max_x)
-            if min_y and max_y:
-                ax.set_ylim(min_y, max_y)
-            
-            plt.savefig(create_file_dir(save_path))
-            plt.close('all')
-
         print "\n***********************************\n"
 
         for dataset, category, ranges in zip(self.datasets, self.categories,
@@ -886,7 +893,7 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
                 rates = rates[:self.npoints]
                 acceptances = acceptances[:self.npoints]
 
-            plot(rates, acceptances, parameters,
+            self.plot(rates, acceptances, parameters,
                 self.rate_title, self.acceptance_title + " ({}, {})".format(
                     dataset.process.label.latex, category.label.latex),
                 None, None, ranges[0], ranges[1], output["plot_rate_%s" % postfix].path)
@@ -917,7 +924,7 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
                     acceptances_2 = acceptances_2[:self.npoints]
                     acceptances_parameters = parameters[:self.npoints]
 
-                plot(acceptances_1, acceptances_2, parameters,
+                self.plot(acceptances_1, acceptances_2, parameters,
                     self.acceptance_title + " ({}, {})".format(
                         dataset_1.process.label.latex, category_1.label.latex),
                     self.acceptance_title + " ({}, {})".format(

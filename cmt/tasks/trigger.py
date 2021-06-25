@@ -2,6 +2,13 @@
 
 import law
 import luigi
+import json
+import os
+
+from analysis_tools.utils import (
+    import_root, create_file_dir, join_root_selection
+)
+import itertools
 
 from cmt.base_tasks.base import ( 
     DatasetTaskWithCategory, DatasetWrapperTask, HTCondorWorkflow, InputData, ConfigTaskWithCategory
@@ -9,10 +16,6 @@ from cmt.base_tasks.base import (
 
 
 class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
-
-    #xx_range = (20, 70)
-    #yy_range = (20, 60)
-    #zz_range = (20, 90)
 
     xx_range = (32, 40)
     yy_range = (20, 33)
@@ -78,17 +81,11 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
                 }
                 return ROOT::RVec({leading_pts, leading_etas, leading_phis, leading_mass});
             }
-        """)
-        
-        root.gInterpreter.Declare("""
             Double_t Phi_mpi_pi(Double_t x) {
                 while (x >= 3.14159) x -= (2 * 3.14159);
                 while (x < -3.14159) x += (2 * 3.14159);
                 return x;
             }
-        """)
-
-        root.gInterpreter.Declare("""
             #include "TMath.h"
             using Vfloat = const ROOT::RVec<float>&;      
             ROOT::RVec<bool> maskDeltaR(Vfloat eta1, Vfloat phi1, Vfloat eta2, Vfloat phi2, float th_dr) {
@@ -225,10 +222,6 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
         )
 
     def get_new_dataframe(self, input_file, output_file):
-        from analysis_tools.utils import (
-            import_root, create_file_dir, join_root_selection
-        )
-        import itertools
         ROOT = import_root()
         ROOT = self.add_to_root(ROOT)
         # ROOT.ROOT.EnableImplicitMT()
@@ -288,6 +281,52 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
         outp = self.output().path
         self.get_new_dataframe(inp, outp)
 
+class Skim(AddTrigger):
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+        ROOT = self.add_to_root(ROOT)
+        # ROOT.ROOT.EnableImplicitMT()
+
+        df = ROOT.RDataFrame(self.tree_name, input_file)
+
+        # add the needed definitions
+        df = self.add_dataframe_definitions(df)
+
+        if self.category.selection:
+            df = df.Filter(self.category.selection)
+
+        # filter de number of offline jets in the event
+        df = self.filter_jets(df)
+
+        branch_names = [
+            "leading_l1tau_pt",
+            "subleading_l1tau_pt",
+            "leading_l1jet_pt",
+            "subleading_l1jet_pt",
+            "leading_tau_pt",
+            "subleading_tau_pt",
+            "leading_jet_pt",
+            "subleading_jet_pt"
+        ]
+
+        df = df.Define("leading_l1tau_pt", "lead_sublead_goodl1tau_pt[0]")
+        df = df.Define("subleading_l1tau_pt", "lead_sublead_goodl1tau_pt[1]")
+        df = df.Define("leading_l1jet_pt", "lead_sublead_goodl1jet_pt[0]")
+        df = df.Define("subleading_l1jet_pt", "lead_sublead_goodl1jet_pt[1]")
+
+        df = df.Define("leading_tau_pt", "lead_sublead_goodtau_pt[0]")
+        df = df.Define("subleading_tau_pt", "lead_sublead_goodtau_pt[1]")
+        df = df.Define("leading_jet_pt", "lead_sublead_goodjet_pt[0]")
+        df = df.Define("subleading_jet_pt", "lead_sublead_goodjet_pt[1]")
+
+        df = df.Filter("subleading_l1tau_pt >= 20 && subleading_tau_pt >= 20")
+
+        branch_list = ROOT.vector('string')()
+        for branch_name in self.additional_branches + branch_names:
+            branch_list.push_back(branch_name)
+
+        df.Snapshot(self.tree_name, create_file_dir(output_file), branch_list)
+
 
 class AddDiJetTrigger(AddTrigger):
 
@@ -296,10 +335,6 @@ class AddDiJetTrigger(AddTrigger):
     zz_range = (20, 100)
 
     def get_new_dataframe(self, input_file, output_file):
-        from analysis_tools.utils import (
-            import_root, create_file_dir, join_root_selection
-        )
-        import itertools
         ROOT = import_root()
         ROOT = self.add_to_root(ROOT)
         # ROOT.ROOT.EnableImplicitMT()
@@ -363,10 +398,6 @@ class AddOffline(AddTrigger):
     ]
 
     def get_new_dataframe(self, input_file, output_file):
-        from analysis_tools.utils import (
-            import_root, create_file_dir, join_root_selection
-        )
-        import itertools
         ROOT = import_root()
         ROOT = self.add_to_root(ROOT)
 
@@ -437,10 +468,6 @@ class AddDiJetOffline(AddOffline):
     zz_range = (20, 100)
 
     def get_new_dataframe(self, input_file, output_file):
-        from analysis_tools.utils import (
-            import_root, create_file_dir, join_root_selection
-        )
-        import itertools
         ROOT = import_root()
         ROOT = self.add_to_root(ROOT)
 
@@ -494,6 +521,82 @@ class AddDiJetOffline(AddOffline):
             branch_list.push_back(branch_name)
 
         df.Snapshot(self.tree_name, create_file_dir(output_file), branch_list)
+
+
+class Acceptance(AddTrigger):
+    xx_range = (32, 40)
+    yy_range = (20, 33)
+    zz_range = (20, 160)
+    dzz_range = (20, 100)
+
+    # xx_range = (32, 34)
+    # yy_range = (20, 22)
+    # zz_range = (20, 22)
+    # dzz_range = (20, 22)
+
+    def workflow_requires(self):
+        return {"data": Skim.req(self, _prefer_cli=["workflow"])}
+
+    def requires(self):
+        return {"data": Skim.req(self, _prefer_cli=["workflow"], branch=self.branch)}
+
+    def output(self):
+        return {
+            "root": self.local_target("{}".format(self.input()["data"].path.split("/")[-1])),
+            "stats": self.local_target("{}".format(self.input()["data"].path.split("/")[-1]
+                ).replace(".root", ".json")),
+        }
+
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+        #ROOT = self.add_to_root(ROOT)
+
+        df = ROOT.RDataFrame(self.tree_name, input_file)
+
+        # add the needed definitions
+        #df = self.add_dataframe_definitions(df)
+
+        ditau_acc = df.Filter(
+            "leading_l1tau_pt >= {0} "
+            "&& subleading_l1tau_pt >= {1}"
+            "&& leading_tau_pt >= ({0} + {2}) "
+            "&& subleading_tau_pt >= ({1} + {3})".format(
+                32,
+                32,
+                self.category.get_aux("add_to_leading_pt"),
+                self.category.get_aux("add_to_subleading_pt")
+            )
+        ).Count()
+
+        #ROOT.gROOT.ProcessLine(
+        #    ".L %s " % os.path.expandvars("$CMT_BASE/cmt/tasks/TotalTrigger.C++"))
+        ROOT.gSystem.Load("%s" % os.path.expandvars("$CMT_BASE/cmt/tasks/./TotalTrigger_C.so"))
+
+        run = ROOT.TotalTrigger(input_file, self.output()["root"].path, self.tree_name,
+            self.xx_range[0], self.xx_range[1], self.yy_range[0], self.yy_range[1],
+            self.zz_range[0], self.zz_range[1], self.dzz_range[0], self.dzz_range[1],
+            self.category.get_aux("add_to_leading_pt"),
+            self.category.get_aux("add_to_subleading_pt"),
+            self.category.get_aux("add_to_trigger_jets", 10)
+        )
+        run.Loop()
+
+        f = ROOT.TFile.Open(input_file)
+        tree = f.Get(self.tree_name)
+        stats = {
+            "nevents": tree.GetEntries(),
+            "den": ditau_acc.GetValue()
+        }
+        f.Close()
+        stats_path = self.output()["stats"].path
+        with open(create_file_dir(stats_path), "w") as json_f:
+            json.dump(stats, json_f, indent=4)
+
+    @law.decorator.notify
+    @law.decorator.localize(input=False)
+    def run(self):
+        inp = self.input()["data"].path
+        self.get_new_dataframe(inp, None)
 
 
 class ComputeRate(AddTrigger):
@@ -630,6 +733,98 @@ class ComputeRate(AddTrigger):
             branch_list.push_back(branch_name)
 
         df.Snapshot(self.tree_name, create_file_dir(output_file), branch_list)
+
+
+class L1Skim(ComputeRate):
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+        ROOT = self.add_to_root(ROOT)
+        # ROOT.ROOT.EnableImplicitMT()
+
+        df = ROOT.RDataFrame(self.tree_name, input_file)
+
+        # add the needed definitions
+        df = self.add_dataframe_definitions(df)
+
+        if self.category.selection:
+            df = df.Filter(self.category.selection)
+
+        # filter de number of offline jets in the event
+        #df = self.filter_jets(df)
+
+        branch_names = [
+            "leading_l1tau_pt",
+            "subleading_l1tau_pt",
+            "leading_l1jet_pt",
+            "subleading_l1jet_pt"
+        ]
+
+        df = df.Define("leading_l1tau_pt", "lead_sublead_goodl1tau_pt[0]")
+        df = df.Define("subleading_l1tau_pt", "lead_sublead_goodl1tau_pt[1]")
+        df = df.Define("leading_l1jet_pt", "lead_sublead_goodl1jet_pt[0]")
+        df = df.Define("subleading_l1jet_pt", "lead_sublead_goodl1jet_pt[1]")
+
+        #df = df.Filter("subleading_l1tau_pt >= 20")
+
+        branch_list = ROOT.vector('string')()
+        for branch_name in self.additional_branches + branch_names:
+            branch_list.push_back(branch_name)
+
+        df.Snapshot(self.tree_name, create_file_dir(output_file), branch_list)
+
+
+class Rate(ComputeRate):
+    xx_range = (32, 40)
+    yy_range = (20, 33)
+    zz_range = (20, 160)
+    dzz_range = (20, 100)
+
+    # xx_range = (32, 34)
+    # yy_range = (20, 22)
+    # zz_range = (20, 22)
+    # dzz_range = (20, 22)
+
+    def workflow_requires(self):
+        return {"data": L1Skim.req(self, _prefer_cli=["workflow"])}
+
+    def requires(self):
+        return {"data": L1Skim.req(self, _prefer_cli=["workflow"], branch=self.branch)}
+    
+    def output(self):
+        return {
+            "root": self.local_target("{}".format(self.input()["data"].path.split("/")[-1])),
+            "stats": self.local_target("{}".format(self.input()["data"].path.split("/")[-1]
+                ).replace(".root", ".json")),
+        }
+
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+
+        #ROOT.gROOT.ProcessLine(
+        #    ".L %s " % os.path.expandvars("$CMT_BASE/cmt/tasks/TotalTrigger.C++"))
+        ROOT.gSystem.Load("%s" % os.path.expandvars("$CMT_BASE/cmt/tasks/./TotalTrigger_C.so"))
+        
+        run = ROOT.TotalTrigger(input_file, self.output()["root"].path, self.tree_name,
+            self.xx_range[0], self.xx_range[1], self.yy_range[0], self.yy_range[1],
+            self.zz_range[0], self.zz_range[1], self.dzz_range[0], self.dzz_range[1]
+        )
+        run.RateLoop()
+
+        f = ROOT.TFile.Open(input_file)
+        tree = f.Get(self.tree_name)
+        stats = {
+            "nevents": tree.GetEntries(),
+        }
+        f.Close()
+        stats_path = self.output()["stats"].path
+        with open(create_file_dir(stats_path), "w") as json_f:
+            json.dump(stats, json_f, indent=4)
+
+    @law.decorator.notify
+    @law.decorator.localize(input=False)
+    def run(self):
+        inp = self.input()["data"].path
+        self.get_new_dataframe(inp, None)
 
 
 class ComputeDiJetRate(ComputeRate):
