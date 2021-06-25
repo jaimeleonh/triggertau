@@ -7,4 +7,12 @@ source setup.sh
 law index --verbose
 ```
 
+Compile cpp code needed:
+```
+root -b
+gROOT->ProcessLine(".L Events.C++");
+.q
+```
+
+
 After starting a new session, you always need to do ``` source setup.sh ```
