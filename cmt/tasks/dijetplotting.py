@@ -3,6 +3,7 @@
 import law
 import luigi
 import itertools
+import math
 from analysis_tools.utils import (
     import_root, create_file_dir, join_root_selection
 )
@@ -307,7 +308,7 @@ class PlotSymDiJetLimitRate(DatasetWrapperTask, ConfigTaskWithCategory, RateTask
                     z - self.zz_range[0] + 1) / den[postfix]
                 error = value * math.sqrt(1. / histos[postfix][(x, y)].GetBinContent(
                     z - self.zz_range[0] + 1,
-                    z - self.zz_range[0] + 1)
+                    z - self.zz_range[0] + 1))
                 histo2D.SetBinContent(
                     x - self.xx_range[0] + 1, y - self.yy_range[0] + 1,
                     value
@@ -327,7 +328,7 @@ class PlotSymDiJetLimitRate(DatasetWrapperTask, ConfigTaskWithCategory, RateTask
                     self.config.year), inner_text=[dataset.process.label, self.category.label])
             for text in texts:
                 text.Draw("same")
-            c.SaveAs(create_file_dir(self.output()[dataset.name].path))
+            c.SaveAs(create_file_dir(self.output()["plot"][dataset.name].path))
             del c, histo2D
 
             with open(create_file_dir(self.output()["json"][dataset.name].path), "w") as f:
