@@ -10,7 +10,7 @@ law index --verbose
 Compile cpp code needed:
 ```
 root -b
-gROOT->ProcessLine(".L Events.C++");
+gROOT->ProcessLine(".L cmt/tasks/TotalTrigger.C++");
 .q
 ```
 
