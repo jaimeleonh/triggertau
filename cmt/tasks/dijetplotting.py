@@ -13,11 +13,11 @@ from cmt.base_tasks.base import (
     DatasetTaskWithCategory, DatasetWrapperTask, HTCondorWorkflow, InputData, ConfigTaskWithCategory
 )
 from cmt.tasks.trigger import (
-    AddDiJetTrigger, AddDiJetOffline, ComputeDiJetRate
+    AddDiJetTrigger, AddDiJetOffline, ComputeDiJetRate, AsymmDiJetAcceptance, AsymmDiJetRate
 )
 
 from cmt.tasks.plotting import (
-    PlotAcceptance, Plot2D, Plot2DLimitRate, MapAcceptance
+    PlotAcceptance, Plot2D, Plot2DLimitRate, MapAcceptance, RateTask
 )
 
 
@@ -145,6 +145,193 @@ class PlotDiJetAcceptance(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWo
         stats_path = self.output()["stats"].path
         with open(create_file_dir(stats_path), "w") as json_f:
             json.dump(stats, json_f, indent=4)
+
+
+class PlotSymDiJetLimitRate(DatasetWrapperTask, ConfigTaskWithCategory, RateTask):
+    rate_threshold = luigi.FloatParameter(default=12., description="maximum rate threshold "
+        "default: 12.")
+    rate_low_percentage = luigi.FloatParameter(default=0.05, description="min allowed rate "
+        "default: 0.05")
+    only_available_branches = luigi.BoolParameter(default=False, description="whether to run only "
+        "using the available branche sinstead of producing all the required ones, default: False")
+
+    xx_range = AsymmDiJetRate.xx_range
+    yy_range = AsymmDiJetRate.yy_range
+    zz_range = AsymmDiJetRate.dzz_range
+
+    def requires(self):
+        reqs = {}
+        for dataset in self.datasets:
+            postfix = dataset.name
+            available_branches = len(dataset.get_files())
+            if self.only_available_branches:
+                branches = []
+                for i in range(available_branches):
+                    ok = True
+                    if AsymmDiJetAcceptance.req(
+                            self, dataset_name=dataset.name, branch=i).complete():
+                        branches.append(i)
+                reqs["acceptance_%s" % postfix] = AsymmDiJetAcceptance.req(self,
+                    dataset_name=dataset.name, branches=branches)
+            else:
+                reqs["acceptance_%s" % postfix] = AsymmDiJetAcceptance.req(self,
+                    dataset_name=dataset.name)
+        reqs["rate"] = AsymmDiJetRate.req(self, version=self.rate_version,
+            dataset_name=self.rate_dataset_name, category_name=self.rate_category_name)
+        return reqs
+
+    def output(self):
+        output = {}
+        output["plot"] = {
+            dataset.name: self.local_target("plot2D_{}_{}.pdf".format(
+                str(self.rate_threshold).replace(".", "_"), dataset.name))
+            for dataset in self.datasets
+        }
+        output["json"] = {
+            dataset.name: self.local_target("plot2D_{}_{}.json".format(
+                str(self.rate_threshold).replace(".", "_"), dataset.name))
+            for dataset in self.datasets
+        }
+        output["rate"] = self.local_target("rateplot2D_{}.pdf".format(
+                str(self.rate_threshold).replace(".", "_")))
+        return output
+
+    @law.decorator.notify
+    def run(self):
+        from copy import deepcopy
+        import json
+        from collections import OrderedDict
+
+        ROOT = import_root()
+        ROOT.gStyle.SetOptStat(0)
+        ROOT.gStyle.SetPaintTextFormat("3.2f")
+        inputs = self.input()
+        output = self.output()
+        den = {}
+        histos = {}
+
+        # Create histos
+        nbinsX = self.xx_range[1] - self.xx_range[0]
+        nbinsY = self.yy_range[1] - self.yy_range[0]
+        nbinsZ = self.zz_range[1] - self.zz_range[0]
+        histos = {}
+        # acceptance computation
+        for dataset in self.datasets:
+            postfix = dataset.name
+            den[postfix] = 0
+            histos[postfix] = {}
+            for x, y in itertools.product(
+                    range(*self.xx_range), range(*self.yy_range)):
+                hmodel = ("histo_total_{}_{}_{}".format(postfix, x, y), "; ZZ; ZZp",
+                    nbinsZ, self.zz_range[0], self.zz_range[1],
+                    nbinsZ, self.zz_range[0], self.zz_range[1],
+                )
+                histos[postfix][(x, y)] = ROOT.TH2F(*hmodel)
+            for elem in inputs["acceptance_%s" % postfix].collection.targets.values():
+                rootfile = ROOT.TFile.Open(elem["root"].path)
+                for x, y in itertools.product(
+                        range(*self.xx_range), range(*self.yy_range)):
+                    histos[postfix][(x, y)].Add(
+                        rootfile.Get("histo_ditau_{0}_{0}__ditau_{1}_{1}_dijet".format(
+                            x, y)).Clone())
+                rootfile.Close()
+                jsonfile = elem["stats"].path
+                with open(jsonfile) as f:
+                    d = json.load(f)
+                den[postfix] += d["den"]
+
+        # rate computation
+        histos["rate"] = {}
+        scaling = self.config.datasets.get(self.rate_dataset_name).get_aux("rate_scaling")
+        for x, y in itertools.product(
+                range(*self.xx_range), range(*self.yy_range)):
+
+            hmodel = ("rate_histo_{}_{}".format(x, y),
+                "; ZZ; ZZp",
+                nbinsZ, self.zz_range[0], self.zz_range[1],
+                nbinsZ, self.zz_range[0], self.zz_range[1]
+            )
+            histos["rate"][(x, y)] = ROOT.TH2F(*hmodel)
+
+        nevents = 0
+        for elem in inputs["rate"].collection.targets.values():
+            rootfile = ROOT.TFile.Open(elem["root"].path)
+            for x, y in itertools.product(
+                    range(*self.xx_range), range(*self.yy_range)):
+
+                histos["rate"][(x, y)].Add(
+                    rootfile.Get("histo_ditau_{0}_{0}__ditau_{1}_{1}_dijet".format(
+                        x, y)).Clone())
+            rootfile.Close()
+            jsonfile = elem["stats"].path
+            with open(jsonfile) as f:
+                d = json.load(f)
+            nevents += d["nevents"]
+
+        rates_to_use = {}
+        hmodel = ("ratehisto", "; XX; YY; ",
+                nbinsX, self.xx_range[0], self.xx_range[1],
+                nbinsY, self.yy_range[0], self.yy_range[1],
+        )
+        ratehisto2D = ROOT.TH2F(*hmodel)
+        for x, y in itertools.product(range(*self.xx_range), range(*self.yy_range)):
+            histos["rate"][(x, y)].Scale((scaling * 2760. * 11246.) / (1000 * nevents))
+            zz_to_use = self.zz_range[1] - 1
+            for z in range(*self.zz_range):
+                if histos["rate"][(x, y)].GetBinContent(
+                        z - self.zz_range[0] + 1, z - self.zz_range[0] + 1) <= self.rate_threshold:
+                    zz_to_use = z
+                    break
+            rates_to_use[(x, y)] = zz_to_use
+            ratehisto2D.Fill(x, y, zz_to_use)
+        c = ROOT.TCanvas("", "", 800, 800)
+        ratehisto2D.Draw("text, colz")
+        texts = get_labels(upper_right="           {} Simulation (13 TeV)".format(
+                self.config.year))
+        for text in texts:
+            text.Draw("same")
+        c.SaveAs(create_file_dir(self.output()["rate"].path))
+        del c, ratehisto2D
+
+        for dataset in self.datasets:
+            postfix = dataset.name
+            hmodel = ("histo_{}".format(postfix), "; XX; YY; ",
+                nbinsX, self.xx_range[0], self.xx_range[1],
+                nbinsY, self.yy_range[0], self.yy_range[1],
+            )
+            histo2D = ROOT.TH2F(*hmodel)
+            dict_to_save = {}
+            for (x, y), z in rates_to_use.items():
+                value = histos[postfix][(x, y)].GetBinContent(
+                    z - self.zz_range[0] + 1,
+                    z - self.zz_range[0] + 1) / den[postfix]
+                error = value * math.sqrt(1. / histos[postfix][(x, y)].GetBinContent(
+                    z - self.zz_range[0] + 1,
+                    z - self.zz_range[0] + 1)
+                histo2D.SetBinContent(
+                    x - self.xx_range[0] + 1, y - self.yy_range[0] + 1,
+                    value
+                )
+                histo2D.SetBinError(
+                    x - self.xx_range[0] + 1, y - self.yy_range[0] + 1,
+                    error
+                )
+                dict_to_save["%s, %s, %s" % (x, y, z)] = {
+                    "value": value,
+                    "error": error
+                }
+            c = ROOT.TCanvas("", "", 800, 800)
+            histo2D.SetMinimum(0.7)
+            histo2D.Draw("text, colz")
+            texts = get_labels(upper_right="           {} Simulation (13 TeV)".format(
+                    self.config.year), inner_text=[dataset.process.label, self.category.label])
+            for text in texts:
+                text.Draw("same")
+            c.SaveAs(create_file_dir(self.output()[dataset.name].path))
+            del c, histo2D
+
+            with open(create_file_dir(self.output()["json"][dataset.name].path), "w") as f:
+                json.dump(dict_to_save, f, indent=4)
 
 
 class PlotDiJet2D(Plot2D):

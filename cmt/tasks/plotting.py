@@ -2,7 +2,10 @@
 
 import law
 import luigi
+import json
+import math
 import itertools
+from copy import deepcopy
 from analysis_tools.utils import (
     import_root, create_file_dir, join_root_selection
 )
@@ -14,7 +17,7 @@ from cmt.base_tasks.base import (
     ConfigTask, ConfigTaskWithCategory, 
 )
 from cmt.tasks.trigger import (
-    AddTrigger, AddOffline, ComputeRate, ComputeAsymRate
+    AddTrigger, AddOffline, ComputeRate, ComputeAsymRate, DiTauRate, AsymmAcceptance, AsymmRate
 )
 
 
@@ -63,7 +66,6 @@ class PlotAcceptance(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflo
     @law.decorator.localize(input=False)
     def run(self):
         import itertools
-        import json
         ROOT = import_root()
 
         inp_trigger = self.input()["trigger"].path
@@ -177,8 +179,6 @@ class Plot2D(DatasetTaskWithCategory):
         return output
 
     def run(self):
-        from copy import deepcopy
-        import json
         ROOT = import_root()
         ROOT.gStyle.SetOptStat(0)
         ROOT.gStyle.SetPaintTextFormat("3.2f")
@@ -273,7 +273,6 @@ class PlotRate(PlotAcceptance):
     @law.decorator.localize(input=False)
     def run(self):
         import itertools
-        import json
         ROOT = import_root()
 
         inp_trigger = self.input()["trigger"].path
@@ -388,7 +387,6 @@ class Plot2DRate(DatasetTaskWithCategory):
         return output
 
     def run(self):
-        from copy import deepcopy
         import json
         ROOT = import_root()
         ROOT.gStyle.SetOptStat(0)
@@ -519,6 +517,189 @@ class RateTask():
         default="base")
 
 
+class PlotSymLimitRate(DatasetWrapperTask, ConfigTaskWithCategory, RateTask):
+    rate_threshold = luigi.FloatParameter(default=12., description="maximum rate threshold "
+        "default: 12.")
+    rate_low_percentage = luigi.FloatParameter(default=0.05, description="min allowed rate "
+        "default: 0.05")
+    only_available_branches = luigi.BoolParameter(default=False, description="whether to run only "
+        "using the available branche sinstead of producing all the required ones, default: False")
+
+    xx_range = AsymmRate.xx_range
+    yy_range = AsymmRate.yy_range
+    zz_range = AsymmRate.zz_range
+
+    def requires(self):
+        reqs = {}
+        for dataset in self.datasets:
+            postfix = dataset.name
+            available_branches = len(dataset.get_files())
+            if self.only_available_branches:
+                branches = []
+                for i in range(available_branches):
+                    ok = True
+                    if AsymmAcceptance.vreq(self, dataset_name=dataset.name, branch=i).complete():
+                        branches.append(i)
+                reqs["acceptance_%s" % postfix] = AsymmAcceptance.vreq(self,
+                    dataset_name=dataset.name, branches=branches)
+            else:
+                reqs["acceptance_%s" % postfix] = AsymmAcceptance.vreq(self,
+                    dataset_name=dataset.name)
+        reqs["rate"] = AsymmRate.vreq(self, version=self.rate_version,
+            dataset_name=self.rate_dataset_name, category_name=self.rate_category_name)
+        return reqs
+
+    def output(self):
+        output = {}
+        output["plot"] = {
+            dataset.name: self.local_target("plot2D_{}_{}.pdf".format(
+                str(self.rate_threshold).replace(".", "_"), dataset.name))
+            for dataset in self.datasets
+        }
+        output["json"] = {
+            dataset.name: self.local_target("plot2D_{}_{}.json".format(
+                str(self.rate_threshold).replace(".", "_"), dataset.name))
+            for dataset in self.datasets
+        }
+        output["rate"] = self.local_target("rateplot2D_{}.pdf".format(
+                str(self.rate_threshold).replace(".", "_")))
+        return output
+
+    @law.decorator.notify
+    def run(self):
+        from copy import deepcopy
+        import json
+        from collections import OrderedDict
+
+        ROOT = import_root()
+        ROOT.gStyle.SetOptStat(0)
+        ROOT.gStyle.SetPaintTextFormat("3.2f")
+        inputs = self.input()
+        output = self.output()
+        den = {}
+        histos = {}
+
+        # Create histos
+        nbinsX = self.xx_range[1] - self.xx_range[0]
+        nbinsY = self.yy_range[1] - self.yy_range[0]
+        nbinsZ = self.zz_range[1] - self.zz_range[0]
+        histos = {}
+        # acceptance computation
+        for dataset in self.datasets:
+            postfix = dataset.name
+            den[postfix] = 0
+            histos[postfix] = {}
+            for x, y in itertools.product(
+                    range(*self.xx_range), range(*self.yy_range)):
+
+                hmodel = ("histo_total_{}_{}_{}".format(postfix, x, y), "; ZZ; Acceptance",
+                    nbinsZ, self.zz_range[0], self.zz_range[1],
+                )
+                histos[postfix][(x, y)] = ROOT.TH1F(*hmodel)
+            for elem in inputs["acceptance_%s" % postfix].collection.targets.values():
+                rootfile = ROOT.TFile.Open(elem["root"].path)
+                for x, y in itertools.product(
+                        range(*self.xx_range), range(*self.yy_range)):
+
+                    histos[postfix][(x, y)].Add(
+                        rootfile.Get("histo_ditau_{0}_{0}__ditau_{1}_{1}_jet".format(
+                            x, y)).Clone())
+                rootfile.Close()
+                jsonfile = elem["stats"].path
+                with open(jsonfile) as f:
+                    d = json.load(f)
+                den[postfix] += d["den"]
+
+        # rate computation
+        histos["rate"] = {}
+        scaling = self.config.datasets.get(self.rate_dataset_name).get_aux("rate_scaling")
+        for x, y in itertools.product(
+                range(*self.xx_range), range(*self.yy_range)):
+
+            hmodel = ("rate_histo_{}_{}".format(x, y),
+                "; ZZ; Rate", nbinsZ, self.zz_range[0], self.zz_range[1]
+            )
+            histos["rate"][(x, y)] = ROOT.TH1F(*hmodel)
+
+        nevents = 0
+        for elem in inputs["rate"].collection.targets.values():
+            rootfile = ROOT.TFile.Open(elem["root"].path)
+            for x, y in itertools.product(
+                    range(*self.xx_range), range(*self.yy_range)):
+
+                histos["rate"][(x, y)].Add(
+                    rootfile.Get("histo_ditau_{0}_{0}__ditau_{1}_{1}_jet".format(
+                        x, y)).Clone())
+            rootfile.Close()
+            jsonfile = elem["stats"].path
+            with open(jsonfile) as f:
+                d = json.load(f)
+            nevents += d["nevents"]
+
+        rates_to_use = {}
+        hmodel = ("ratehisto", "; XX; YY; ",
+                nbinsX, self.xx_range[0], self.xx_range[1],
+                nbinsY, self.yy_range[0], self.yy_range[1],
+        )
+        ratehisto2D = ROOT.TH2F(*hmodel)
+        for x, y in itertools.product(range(*self.xx_range), range(*self.yy_range)):
+            histos["rate"][(x, y)].Scale((scaling * 2760. * 11246.) / (1000 * nevents))
+            zz_to_use = self.zz_range[1] - 1
+            for z in range(*self.zz_range):
+                if histos["rate"][(x, y)].GetBinContent(
+                        z - self.zz_range[0] + 1) <= self.rate_threshold:
+                    zz_to_use = z
+                    break
+            rates_to_use[(x, y)] = zz_to_use
+            ratehisto2D.Fill(x, y, zz_to_use)
+        c = ROOT.TCanvas("", "", 800, 800)
+        ratehisto2D.Draw("text, colz")
+        texts = get_labels(upper_right="           {} Simulation (13 TeV)".format(
+                self.config.year))
+        for text in texts:
+            text.Draw("same")
+        c.SaveAs(create_file_dir(self.output()["rate"].path))
+        del c, ratehisto2D
+
+        for dataset in self.datasets:
+            postfix = dataset.name
+            hmodel = ("histo_{}".format(postfix), "; XX; YY; ",
+                nbinsX, self.xx_range[0], self.xx_range[1],
+                nbinsY, self.yy_range[0], self.yy_range[1],
+            )
+            histo2D = ROOT.TH2F(*hmodel)
+            dict_to_save = {}
+            for (x, y), z in rates_to_use.items():
+                value = histos[postfix][(x, y)].GetBinContent(
+                    z - self.zz_range[0] + 1) / den[postfix]
+                error = value * math.sqrt(1. / histos[postfix][(x, y)].GetBinContent(
+                    z - self.zz_range[0] + 1) + 1. / den[postfix])
+                histo2D.SetBinContent(
+                    x - self.xx_range[0] + 1, y - self.yy_range[0] + 1,
+                    value
+                )
+                histo2D.SetBinError(
+                    x - self.xx_range[0] + 1, y - self.yy_range[0] + 1,
+                    error
+                )
+                dict_to_save["%s, %s, %s" % (x, y, z)] = {
+                    "value": value,
+                    "error": error
+                }
+            c = ROOT.TCanvas("", "", 800, 800)
+            histo2D.SetMinimum(0.7)
+            histo2D.Draw("text, colz")
+            texts = get_labels(upper_right="           {} Simulation (13 TeV)".format(
+                    self.config.year), inner_text=[dataset.process.label, self.category.label])
+            for text in texts:
+                text.Draw("same")
+            c.SaveAs(create_file_dir(self.output()["plot"][dataset.name].path))
+            del c, histo2D
+
+            with open(create_file_dir(self.output()["json"][dataset.name].path), "w") as f:
+                json.dump(dict_to_save, f, indent=4)
+
+
 class Plot2DLimitRate(Plot2D, RateTask):
     rate_threshold = luigi.FloatParameter(default=18., description="maximum rate threshold "
         "default: 18.")
@@ -550,8 +731,6 @@ class Plot2DLimitRate(Plot2D, RateTask):
 
     @law.decorator.notify
     def run(self):
-        from copy import deepcopy
-        import json
         from collections import OrderedDict
         ROOT = import_root()
         ROOT.gStyle.SetOptStat(0)
@@ -643,6 +822,68 @@ class Plot2DLimitRate(Plot2D, RateTask):
 
         with open(create_file_dir(output["json"].path), "w") as f:
             json.dump(dict_to_output, f, indent=4)
+
+
+class PlotDiTauRate(DatasetWrapperTask, ConfigTaskWithCategory):
+    xx_range = DiTauRate.xx_range
+    def requires(self):
+        reqs = {}
+        for dataset in self.datasets:
+            reqs[dataset.name] = DiTauRate.req(self, dataset_name=dataset.name)
+        return reqs
+
+    def output(self):
+        return {
+            "plot": self.local_target("plot2D_ditau.pdf"),
+            "json": self.local_target("plot2D_ditau.json")
+        }
+    
+    @law.decorator.notify
+    def run(self):
+        ROOT = import_root()
+        ROOT.gStyle.SetOptStat(0)
+        nbinsx = self.xx_range[1] - self.xx_range[0]
+        histo2D = ROOT.TH2F("histo_ditau", "; xx; xxp; Events",
+            nbinsx, self.xx_range[0], self.xx_range[1], nbinsx, self.xx_range[0], self.xx_range[1])
+        inp = self.input()
+        output = self.output()
+        nevents = 0
+        for dataset in self.datasets:
+            scaling = dataset.get_aux("rate_scaling")
+            for elem in inp[dataset.name].collection.targets.values():
+                tf = ROOT.TFile.Open(elem["root"].path)
+                tmp_histo = tf.Get("histo_ditau").Clone()
+                tmp_histo.Scale(scaling)
+                histo2D.Add(tmp_histo)
+                tf.Close()
+
+                jsonfile = elem["stats"].path
+                with open(jsonfile) as f:
+                    d = json.load(f)
+                nevents += d["nevents"]
+        histo2D.Scale((2760. * 11246.) / (1000 * nevents))
+
+        # plot
+        c = ROOT.TCanvas("", "", 800, 800)
+        histo2D.Draw("text, colz")
+        texts = get_labels(upper_right="           {} Simulation (13 TeV)".format(
+                self.config.year),
+            inner_text=["Run" + ("s " if len(self.datasets) > 1 else " ") 
+                + ", ".join([dataset.get_aux("label") for dataset in self.datasets])])
+        for text in texts:
+            text.Draw("same")
+        c.SaveAs(create_file_dir(output["plot"].path))
+
+        histo_dict = {}
+        for xx, xxp in itertools.product(range(*self.xx_range), range(*self.xx_range)):
+            histo_dict["%s, %s" % (xx, xxp)] = {
+                "value": histo2D.GetBinContent(xx - self.xx_range[0] + 1,
+                    xxp - self.xx_range[0] + 1),
+                "error": histo2D.GetBinError(xx - self.xx_range[0] + 1,
+                    xxp - self.xx_range[0] + 1)
+            }
+        with open(create_file_dir(output["json"].path), "w") as f:
+            json.dump(histo_dict, f, indent=4)
 
 
 class MapAcceptance(RateTask, DatasetWrapperTask):
@@ -737,6 +978,15 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
             save_postfix += "_zz_" + str(self.zz_fixed)
         return save_postfix
 
+    def is_fixed(self, xx, yy, zz):
+        if self.xx_fixed != -1 and xx != self.xx_fixed:
+            return False
+        if self.yy_fixed != -1 and yy != self.yy_fixed:
+            return False
+        if self.zz_fixed != -1 and zz != self.zz_fixed and zz != -1:
+            return False
+        return True
+
     def output(self):
         outputs = {}
         for dataset, category in zip(self.datasets, self.categories):
@@ -792,10 +1042,74 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
         plt.savefig(create_file_dir(save_path))
         plt.close('all')
 
+    def plot_stuff(self, acceptances_to_plot):
+        print "\n***********************************\n"
+
+        for dataset, category, ranges in zip(self.datasets, self.categories,
+                self.acceptance_ranges):
+            # order by acceptance
+            acceptances_sorted = deepcopy(acceptances_to_plot[(dataset, category)])
+            acceptances_sorted.sort(key=lambda x:x[2], reverse=True)
+
+            parameters = [x[0] for x in acceptances_sorted]
+            rates = [x[1] for x in acceptances_sorted]
+            acceptances = [x[2] for x in acceptances_sorted]
+
+            bigger = len([acc for acc in acceptances if acc > ranges[1]])
+            smaller = len([acc for acc in acceptances if acc < ranges[0]])
+
+            print "({}, {}) -> >{}:{}, <{}:{}".format(dataset.name, category.name,
+                ranges[1], bigger, ranges[0], smaller)
+
+            postfix = "{}_{}".format(dataset.name, category.name)
+            # with open(create_file_dir(output["json_rate_%s" % postfix].path), "w") as f:
+                # json.dump(dict(zip(parameters, zip(rates, acceptances))), f, indent=4)
+            if self.npoints != -1:
+                parameters = parameters[:self.npoints]
+                rates = rates[:self.npoints]
+                acceptances = acceptances[:self.npoints]
+
+            self.plot(rates, acceptances, parameters,
+                self.rate_title, self.acceptance_title + " ({}, {})".format(
+                    dataset.process.label.latex, category.label.latex),
+                None, None, ranges[0], ranges[1], self.output()["plot_rate_%s" % postfix].path)
+
+        print "\n***********************************\n"
+
+        for i in range(len(self.datasets) - 1):
+            for j in range(i + 1, len(self.datasets)):
+                (dataset_1, category_1, ranges_1) = (self.datasets[i],
+                    self.categories[i], self.acceptance_ranges[i])
+                (dataset_2, category_2, ranges_2) = (self.datasets[j],
+                    self.categories[j], self.acceptance_ranges[j])
+                postfix = "{}_{}_{}_{}".format(dataset_1.name, category_1.name,
+                    dataset_2.name, category_2.name)
+
+                acceptances_sorted = [(x[0], x[1], x[2], y[2]) for x, y in zip(
+                    acceptances_to_plot[(dataset_1, category_1)],
+                    acceptances_to_plot[(dataset_2, category_2)])]
+                acceptances_sorted.sort(key=lambda x:x[2] + x[3], reverse=True)
+                acceptances_1 = [x[2] for x in acceptances_sorted]
+                acceptances_2 = [x[3] for x in acceptances_sorted]
+                parameters = [x[0] for x in acceptances_sorted]
+
+                with open(create_file_dir(self.output()["json_%s" % postfix].path), "w") as f:
+                    json.dump(dict(zip(parameters, zip(acceptances_1, acceptances_2))), f, indent=4)
+                if self.npoints != -1:
+                    acceptances_1 = acceptances_1[:self.npoints]
+                    acceptances_2 = acceptances_2[:self.npoints]
+                    acceptances_parameters = parameters[:self.npoints]
+
+                self.plot(acceptances_1, acceptances_2, parameters,
+                    self.acceptance_title + " ({}, {})".format(
+                        dataset_1.process.label.latex, category_1.label.latex),
+                    self.acceptance_title + " ({}, {})".format(
+                        dataset_2.process.label.latex, category_2.label.latex),
+                    ranges_1[0], ranges_1[1], ranges_2[0], ranges_2[1],
+                    self.output()["plot_%s" % postfix].path)
+
     @law.decorator.notify
     def run(self):
-        from copy import deepcopy
-        import json
         from collections import OrderedDict
 
         ROOT = import_root()
@@ -867,69 +1181,7 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
                 #     continue
                 acceptances_to_plot[(dataset, category)].append((parameters, rate, acceptance))
 
-        print "\n***********************************\n"
-
-        for dataset, category, ranges in zip(self.datasets, self.categories,
-                self.acceptance_ranges):
-            # order by acceptance
-            acceptances_sorted = deepcopy(acceptances_to_plot[(dataset, category)])
-            acceptances_sorted.sort(key=lambda x:x[2], reverse=True)
-
-            parameters = [x[0] for x in acceptances_sorted]
-            rates = [x[1] for x in acceptances_sorted]
-            acceptances = [x[2] for x in acceptances_sorted]
-
-            bigger = len([acc for acc in acceptances if acc > ranges[1]])
-            smaller = len([acc for acc in acceptances if acc < ranges[0]])
-
-            print "({}, {}) -> >{}:{}, <{}:{}".format(dataset.name, category.name,
-                ranges[1], bigger, ranges[0], smaller)
-
-            postfix = "{}_{}".format(dataset.name, category.name)
-            with open(create_file_dir(output["json_rate_%s" % postfix].path), "w") as f:
-                json.dump(dict(zip(parameters, zip(rates, acceptances))), f, indent=4)
-            if self.npoints != -1:
-                parameters = parameters[:self.npoints]
-                rates = rates[:self.npoints]
-                acceptances = acceptances[:self.npoints]
-
-            self.plot(rates, acceptances, parameters,
-                self.rate_title, self.acceptance_title + " ({}, {})".format(
-                    dataset.process.label.latex, category.label.latex),
-                None, None, ranges[0], ranges[1], output["plot_rate_%s" % postfix].path)
-
-        print "\n***********************************\n"
-
-        for i in range(len(self.datasets) - 1):
-            for j in range(i + 1, len(self.datasets)):
-                (dataset_1, category_1, ranges_1) = (self.datasets[i],
-                    self.categories[i], self.acceptance_ranges[i])
-                (dataset_2, category_2, ranges_2) = (self.datasets[j],
-                    self.categories[j], self.acceptance_ranges[j])
-                postfix = "{}_{}_{}_{}".format(dataset_1.name, category_1.name,
-                    dataset_2.name, category_2.name)
-
-                acceptances_sorted = [(x[0], x[1], x[2], y[2]) for x, y in zip(
-                    acceptances_to_plot[(dataset_1, category_1)],
-                    acceptances_to_plot[(dataset_2, category_2)])]
-                acceptances_sorted.sort(key=lambda x:x[2] + x[3], reverse=True)
-                acceptances_1 = [x[2] for x in acceptances_sorted]
-                acceptances_2 = [x[3] for x in acceptances_sorted]
-                parameters = [x[0] for x in acceptances_sorted]
-
-                with open(create_file_dir(output["json_%s" % postfix].path), "w") as f:
-                    json.dump(dict(zip(parameters, zip(acceptances_1, acceptances_2))), f, indent=4)
-                if self.npoints != -1:
-                    acceptances_1 = acceptances_1[:self.npoints]
-                    acceptances_2 = acceptances_2[:self.npoints]
-                    acceptances_parameters = parameters[:self.npoints]
-
-                self.plot(acceptances_1, acceptances_2, parameters,
-                    self.acceptance_title + " ({}, {})".format(
-                        dataset_1.process.label.latex, category_1.label.latex),
-                    self.acceptance_title + " ({}, {})".format(
-                        dataset_2.process.label.latex, category_2.label.latex),
-                    ranges_1[0], ranges_1[1], ranges_2[0], ranges_2[1], output["plot_%s" % postfix].path)
+        self.plot_stuff(acceptances_to_plot)
 
 
 class DecoAcceptance(Plot2D):
@@ -945,8 +1197,6 @@ class DecoAcceptance(Plot2D):
 
     @law.decorator.notify
     def run(self):
-        from copy import deepcopy
-        import json
         from collections import OrderedDict
         ROOT = import_root()
         ROOT.gStyle.SetOptStat(0)
@@ -1070,7 +1320,6 @@ class PlotNanoAODStuff(DatasetTaskWithCategory):
         return df
 
     def run(self):
-        from copy import deepcopy
         import json
         ROOT = import_root()
         ROOT.gStyle.SetOptStat(0)

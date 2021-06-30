@@ -24,7 +24,7 @@ public :
    Int_t           fCurrent; //!current Tree number in a TChain
    TFile          *outfile;
 
-   int minx, maxx, miny, maxy, minz, maxz, mindz, maxdz;
+   int minx = -1, maxx = -1, miny = -1, maxy = -1, minz = -1, maxz = -1, mindz = -1, maxdz = -1;
    int add_to_leading_tau = -1, add_to_subleading_tau = -1, add_to_jet = -1;
 
 // Fixed size dimensions of array or collections stored in the TTree if any.
@@ -66,19 +66,17 @@ public :
      int minz, int maxz,
      int mindz, int maxdz,
      int add_to_leading_tau, int add_to_subleading_tau, int add_to_jet);
-   TotalTrigger(
-     const TString & inSample, const TString & outName, const TString & treename,
-     int minx, int maxx,
-     int miny, int maxy,
-     int minz, int maxz,
-     int mindz, int maxdz);
    virtual ~TotalTrigger();
    virtual Int_t    Cut(Long64_t entry);
    virtual Int_t    GetEntry(Long64_t entry);
    virtual Long64_t LoadTree(Long64_t entry);
    virtual void     Init(TTree *tree);
-   virtual void     Loop();
-   virtual void     RateLoop();
+   virtual void     TotalLoop();
+   virtual void     AsymmLoop();
+   virtual void     AsymmDiJetLoop();
+   virtual void     RateTotalLoop();
+   virtual void     RateAsymmLoop();
+   virtual void     RateAsymmDiJetLoop();
    virtual Bool_t   Notify();
    virtual void     Show(Long64_t entry = -1);
 };
@@ -112,30 +110,6 @@ TotalTrigger::TotalTrigger(
   this->add_to_leading_tau = add_to_leading_tau;
   this->add_to_subleading_tau = add_to_subleading_tau;
   this->add_to_jet = add_to_jet;
-}
-
-TotalTrigger::TotalTrigger(
-  const TString & inSample, const TString & outName, const TString & treename,
-  int minx, int maxx,
-  int miny, int maxy,
-  int minz, int maxz,
-  int mindz, int maxdz) : fChain(0) 
-{
-// if parameter tree is not specified (or zero), connect the file
-// used to generate this class and read the Tree.
-  TFile *f = TFile::Open(inSample, "READ");
-  TTree *tree = (TTree*) f->Get(treename);
-  Init(tree);
-  outfile = TFile::Open(outName, "RECREATE");
-
-  this->minx = minx;
-  this->maxx = maxx;
-  this->miny = miny;
-  this->maxy = maxy;
-  this->minz = minz;
-  this->maxz = maxz;
-  this->mindz = mindz;
-  this->maxdz = maxdz;
 }
 
 TotalTrigger::~TotalTrigger()

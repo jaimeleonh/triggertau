@@ -11,8 +11,11 @@ from analysis_tools.utils import (
 import itertools
 
 from cmt.base_tasks.base import ( 
-    DatasetTaskWithCategory, DatasetWrapperTask, HTCondorWorkflow, InputData, ConfigTaskWithCategory
+    DatasetTaskWithCategory, DatasetWrapperTask, HTCondorWorkflow, InputData,
+    ConfigTaskWithCategory
 )
+
+from cmt.base_tasks.preprocessing import DatasetCategoryWrapperTask
 
 
 class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
@@ -41,10 +44,10 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
         return len(self.dataset.get_files())
 
     def workflow_requires(self):
-        return {"data": InputData.req(self)}
+        return {"data": InputData.vreq(self)}
 
     def requires(self):
-        return {"data": InputData.req(self, file_index=self.branch)}
+        return {"data": InputData.vreq(self, file_index=self.branch)}
 
     def output(self):
         return self.local_target("{}".format(self.input()["data"].path.split("/")[-1]))
@@ -281,21 +284,22 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
         outp = self.output().path
         self.get_new_dataframe(inp, outp)
 
+
 class Skim(AddTrigger):
     def get_new_dataframe(self, input_file, output_file):
         ROOT = import_root()
         ROOT = self.add_to_root(ROOT)
         # ROOT.ROOT.EnableImplicitMT()
-
+        print "RUNNING SKIMMING"
         df = ROOT.RDataFrame(self.tree_name, input_file)
 
         # add the needed definitions
         df = self.add_dataframe_definitions(df)
 
-        if self.category.selection:
-            df = df.Filter(self.category.selection)
+        # if self.category.selection:
+        #     df = df.Filter(self.category.selection)
 
-        # filter de number of offline jets in the event
+        # filter the number of offline jets in the event
         df = self.filter_jets(df)
 
         branch_names = [
@@ -526,8 +530,8 @@ class AddDiJetOffline(AddOffline):
 class Acceptance(AddTrigger):
     xx_range = (32, 40)
     yy_range = (20, 33)
-    zz_range = (20, 160)
-    dzz_range = (20, 100)
+    zz_range = (20, 80)
+    dzz_range = (20, 80)
 
     # xx_range = (32, 34)
     # yy_range = (20, 22)
@@ -535,10 +539,10 @@ class Acceptance(AddTrigger):
     # dzz_range = (20, 22)
 
     def workflow_requires(self):
-        return {"data": Skim.req(self, _prefer_cli=["workflow"])}
+        return {"data": Skim.vreq(self, _prefer_cli=["workflow"])}
 
     def requires(self):
-        return {"data": Skim.req(self, _prefer_cli=["workflow"], branch=self.branch)}
+        return {"data": Skim.vreq(self, _prefer_cli=["workflow"], branch=self.branch)}
 
     def output(self):
         return {
@@ -579,7 +583,7 @@ class Acceptance(AddTrigger):
             self.category.get_aux("add_to_subleading_pt"),
             self.category.get_aux("add_to_trigger_jets", 10)
         )
-        run.Loop()
+        run.TotalLoop()
 
         f = ROOT.TFile.Open(input_file)
         tree = f.Get(self.tree_name)
@@ -597,6 +601,110 @@ class Acceptance(AddTrigger):
     def run(self):
         inp = self.input()["data"].path
         self.get_new_dataframe(inp, None)
+
+class AcceptanceWrapper(DatasetCategoryWrapperTask):
+
+    def atomic_requires(self, dataset, category):
+        return Acceptance.vreq(self, dataset_name=dataset.name, category_name=category.name)
+
+
+class AsymmAcceptance(Acceptance):
+    xx_range = (32, 40)
+    yy_range = (20, 33)
+    zz_range = (20, 160)
+
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+
+        df = ROOT.RDataFrame(self.tree_name, input_file)
+
+        ditau_acc = df.Filter(
+            "leading_l1tau_pt >= {0} "
+            "&& subleading_l1tau_pt >= {1}"
+            "&& leading_tau_pt >= ({0} + {2}) "
+            "&& subleading_tau_pt >= ({1} + {3})".format(
+                32,
+                32,
+                self.category.get_aux("add_to_leading_pt"),
+                self.category.get_aux("add_to_subleading_pt")
+            )
+        ).Count()
+
+        ROOT.gSystem.Load("%s" % os.path.expandvars("$CMT_BASE/cmt/tasks/./TotalTrigger_C.so"))
+
+        run = ROOT.TotalTrigger(input_file, self.output()["root"].path, self.tree_name,
+            self.xx_range[0], self.xx_range[1], self.yy_range[0], self.yy_range[1],
+            self.zz_range[0], self.zz_range[1], -1, -1,
+            self.category.get_aux("add_to_leading_pt"),
+            self.category.get_aux("add_to_subleading_pt"),
+            self.category.get_aux("add_to_trigger_jets", 10)
+        )
+        run.AsymmLoop()
+
+        f = ROOT.TFile.Open(input_file)
+        tree = f.Get(self.tree_name)
+        stats = {
+            "nevents": tree.GetEntries(),
+            "den": ditau_acc.GetValue()
+        }
+        f.Close()
+        stats_path = self.output()["stats"].path
+        with open(create_file_dir(stats_path), "w") as json_f:
+            json.dump(stats, json_f, indent=4)
+
+class AsymmAcceptanceWrapper(DatasetCategoryWrapperTask):
+
+    def atomic_requires(self, dataset, category):
+        return AsymmAcceptance.vreq(self, dataset_name=dataset.name, category_name=category.name)
+
+
+class AsymmDiJetAcceptance(Acceptance):
+    xx_range = (32, 40)
+    yy_range = (20, 33)
+    dzz_range = (20, 100)
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+
+        df = ROOT.RDataFrame(self.tree_name, input_file)
+
+        ditau_acc = df.Filter(
+            "leading_l1tau_pt >= {0} "
+            "&& subleading_l1tau_pt >= {1}"
+            "&& leading_tau_pt >= ({0} + {2}) "
+            "&& subleading_tau_pt >= ({1} + {3})".format(
+                32,
+                32,
+                self.category.get_aux("add_to_leading_pt"),
+                self.category.get_aux("add_to_subleading_pt")
+            )
+        ).Count()
+
+        ROOT.gSystem.Load("%s" % os.path.expandvars("$CMT_BASE/cmt/tasks/./TotalTrigger_C.so"))
+
+        run = ROOT.TotalTrigger(input_file, self.output()["root"].path, self.tree_name,
+            self.xx_range[0], self.xx_range[1], self.yy_range[0], self.yy_range[1],
+            -1, -1, self.dzz_range[0], self.dzz_range[1],
+            self.category.get_aux("add_to_leading_pt"),
+            self.category.get_aux("add_to_subleading_pt"),
+            self.category.get_aux("add_to_trigger_jets", 10)
+        )
+        run.AsymmDiJetLoop()
+
+        f = ROOT.TFile.Open(input_file)
+        tree = f.Get(self.tree_name)
+        stats = {
+            "nevents": tree.GetEntries(),
+            "den": ditau_acc.GetValue()
+        }
+        f.Close()
+        stats_path = self.output()["stats"].path
+        with open(create_file_dir(stats_path), "w") as json_f:
+            json.dump(stats, json_f, indent=4)
+
+class AsymmDiJetAcceptanceWrapper(DatasetCategoryWrapperTask):
+
+    def atomic_requires(self, dataset, category):
+        return AsymmDiJetAcceptance.vreq(self, dataset_name=dataset.name, category_name=category.name)
 
 
 class ComputeRate(AddTrigger):
@@ -779,16 +887,11 @@ class Rate(ComputeRate):
     zz_range = (20, 160)
     dzz_range = (20, 100)
 
-    # xx_range = (32, 34)
-    # yy_range = (20, 22)
-    # zz_range = (20, 22)
-    # dzz_range = (20, 22)
-
     def workflow_requires(self):
-        return {"data": L1Skim.req(self, _prefer_cli=["workflow"])}
+        return {"data": L1Skim.vreq(self, _prefer_cli=["workflow"])}
 
     def requires(self):
-        return {"data": L1Skim.req(self, _prefer_cli=["workflow"], branch=self.branch)}
+        return {"data": L1Skim.vreq(self, _prefer_cli=["workflow"], branch=self.branch)}
     
     def output(self):
         return {
@@ -806,9 +909,10 @@ class Rate(ComputeRate):
         
         run = ROOT.TotalTrigger(input_file, self.output()["root"].path, self.tree_name,
             self.xx_range[0], self.xx_range[1], self.yy_range[0], self.yy_range[1],
-            self.zz_range[0], self.zz_range[1], self.dzz_range[0], self.dzz_range[1]
+            self.zz_range[0], self.zz_range[1], self.dzz_range[0], self.dzz_range[1],
+            -1, -1, -1
         )
-        run.RateLoop()
+        run.RateTotalLoop()
 
         f = ROOT.TFile.Open(input_file)
         tree = f.Get(self.tree_name)
@@ -825,6 +929,131 @@ class Rate(ComputeRate):
     def run(self):
         inp = self.input()["data"].path
         self.get_new_dataframe(inp, None)
+
+
+class DiTauRate(ComputeRate):
+    xx_range = (32, 40)
+
+    def workflow_requires(self):
+        return {"data": L1Skim.vreq(self, _prefer_cli=["workflow"])}
+
+    def requires(self):
+        return {"data": L1Skim.vreq(self, _prefer_cli=["workflow"], branch=self.branch)}
+    
+    def output(self):
+        return {
+            "root": self.local_target("{}".format(self.input()["data"].path.split("/")[-1])),
+            "stats": self.local_target("{}".format(self.input()["data"].path.split("/")[-1]
+                ).replace(".root", ".json")),
+        }
+
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+
+        df = ROOT.RDataFrame(self.tree_name, input_file)
+        counts = {}
+
+        for xx, xxp in itertools.product(range(*self.xx_range), range(*self.xx_range)):
+            counts[(xx, xxp)] = df.Filter(
+                "leading_l1tau_pt >= {0} "
+                "&& subleading_l1tau_pt >= {1}".format(xx, xxp)
+            ).Count()
+        
+        histo2D = ROOT.TH2F("histo_ditau", "; xx; xxp; Events", 8, 32, 40, 8, 32, 40)
+        for xx, xxp in itertools.product(range(*self.xx_range), range(*self.xx_range)):
+            histo2D.Fill(xx, xxp, counts[(xx, xxp)].GetValue())
+
+        f = ROOT.TFile.Open(self.output()["root"].path, "RECREATE")
+        histo2D.Write()
+        f.Close()
+
+        f = ROOT.TFile.Open(input_file)
+        tree = f.Get(self.tree_name)
+        stats = {
+            "nevents": tree.GetEntries(),
+        }
+        f.Close()
+        stats_path = self.output()["stats"].path
+        with open(create_file_dir(stats_path), "w") as json_f:
+            json.dump(stats, json_f, indent=4)
+
+    @law.decorator.notify
+    @law.decorator.localize(input=False)
+    def run(self):
+        inp = self.input()["data"].path
+        self.get_new_dataframe(inp, None)
+
+
+# class RateWrapper(DatasetCategoryWrapperTask):
+
+    # def atomic_requires(self, dataset, category):
+        # return Rate.vreq(self, dataset_name=dataset.name, category_name=category.name)
+
+
+class AsymmRate(Rate):
+
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+
+        #ROOT.gROOT.ProcessLine(
+        #    ".L %s " % os.path.expandvars("$CMT_BASE/cmt/tasks/TotalTrigger.C++"))
+        ROOT.gSystem.Load("%s" % os.path.expandvars("$CMT_BASE/cmt/tasks/./TotalTrigger_C.so"))
+        
+        run = ROOT.TotalTrigger(input_file, self.output()["root"].path, self.tree_name,
+            self.xx_range[0], self.xx_range[1], self.yy_range[0], self.yy_range[1],
+            self.zz_range[0], self.zz_range[1], -1, -1,
+            -1, -1, -1
+        )
+        run.RateAsymmLoop()
+
+        f = ROOT.TFile.Open(input_file)
+        tree = f.Get(self.tree_name)
+        stats = {
+            "nevents": tree.GetEntries(),
+        }
+        f.Close()
+        stats_path = self.output()["stats"].path
+        with open(create_file_dir(stats_path), "w") as json_f:
+            json.dump(stats, json_f, indent=4)
+
+
+# class AsymmRateWrapper(DatasetCategoryWrapperTask):
+
+    # def atomic_requires(self, dataset, category):
+        # return AsymmRate.vreq(self, dataset_name=dataset.name, category_name=category.name)
+
+
+class AsymmDiJetRate(Rate):
+
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+
+        #ROOT.gROOT.ProcessLine(
+        #    ".L %s " % os.path.expandvars("$CMT_BASE/cmt/tasks/TotalTrigger.C++"))
+        ROOT.gSystem.Load("%s" % os.path.expandvars("$CMT_BASE/cmt/tasks/./TotalTrigger_C.so"))
+        
+        run = ROOT.TotalTrigger(input_file, self.output()["root"].path, self.tree_name,
+            self.xx_range[0], self.xx_range[1], self.yy_range[0], self.yy_range[1],
+            -1, -1, self.dzz_range[0], self.dzz_range[1], 
+            -1, -1, -1
+        )
+        run.RateAsymmDiJetLoop()
+
+        f = ROOT.TFile.Open(input_file)
+        tree = f.Get(self.tree_name)
+        stats = {
+            "nevents": tree.GetEntries(),
+        }
+        f.Close()
+        stats_path = self.output()["stats"].path
+        with open(create_file_dir(stats_path), "w") as json_f:
+            json.dump(stats, json_f, indent=4)
+
+
+# class AsymmDiJetRateWrapper(DatasetCategoryWrapperTask):
+
+    # def atomic_requires(self, dataset, category):
+        # return AsymmDiJetRate.vreq(self, dataset_name=dataset.name, category_name=category.name)
 
 
 class ComputeDiJetRate(ComputeRate):

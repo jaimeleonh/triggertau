@@ -18,39 +18,40 @@ class Config():
     def add_categories(self):
         categories = [
             Category("base", Label(root="base category")),
-            Category("bbtt", Label(root="HH#to bb#tau#tau"),
+            Category("bbtt", Label(root="HH#rightarrow bb#tau#tau"),
                 selection="Jet_pt[Jet_pt >= 20 && abs(Jet_eta) <= 4.7 && Jet_jetId >= 2 && ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))].size() >= 2", 
-                nminjets=2, nmaxjets=999, add_to_jet_pt=0, add_to_leading_pt=18, add_to_subleading_pt=8),
+                nminjets=2, nmaxjets=999, add_to_jet_pt=0, add_to_leading_pt=8, add_to_subleading_pt=8),
             # H->tautau selection, extracted from cms.cern.ch/iCMS/jsp/openfile.jsp?tp=draft&files=AN2019_109_v17.pdf, L719
             Category("htt_0jet", Label(root=" 0 jet cat."),
-                selection="Jet_pt[Jet_pt >= 30 && abs(Jet_eta) <= 4.7 && Jet_jetId >= 2 && ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))].size() >= 0", 
-                nminjets=0, nmaxjets=0, add_to_jet_pt=10, add_to_leading_pt=8, add_to_subleading_pt=8),
+                #selection="Jet_pt[Jet_pt >= 30 && abs(Jet_eta) <= 4.7 && Jet_jetId >= 2 && ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))].size() >= 0", 
+                nminjets=0, nmaxjets=0, add_to_jet_pt=10, add_to_leading_pt=18, add_to_subleading_pt=8),
             Category("htt_1jet", Label(root="1 jet cat."),
                 selection="Jet_pt[Jet_pt >= 30 && abs(Jet_eta) <= 4.7 && Jet_jetId >= 2 && ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))].size() >= 1", 
-                nminjets=1, nmaxjets=1, add_to_jet_pt=10, add_to_leading_pt=8, add_to_subleading_pt=8),
+                nminjets=1, nmaxjets=1, add_to_jet_pt=10, add_to_leading_pt=18, add_to_subleading_pt=8),
             Category("htt_1jet_highPt", Label(root="1 jet, High pt cat."),
                 selection="Jet_pt[Jet_pt >= 70 && abs(Jet_eta) <= 4.7 && Jet_jetId >= 2 && ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))].size() >= 1", 
-                nminjets=1, nmaxjets=1, add_to_jet_pt=50, add_to_leading_pt=8, add_to_subleading_pt=8),
+                nminjets=1, nmaxjets=1, add_to_jet_pt=50, add_to_leading_pt=18, add_to_subleading_pt=8),
             Category("htt_2jet", Label(root="2 jet cat."),
                 selection="Jet_pt[Jet_pt >= 30 && abs(Jet_eta) <= 4.7 && Jet_jetId >= 2 && ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))].size() >= 2", 
-                nminjets=2, nmaxjets=999, add_to_jet_pt=0, add_to_leading_pt=8, add_to_subleading_pt=8)
+                nminjets=2, nmaxjets=999, add_to_jet_pt=10, add_to_leading_pt=18, add_to_subleading_pt=8)
         ]
         return ObjectCollection(categories)
 
     def add_processes(self):
         processes = [
-            Process("ggf_lo", Label(root="HH #rightarrow bb#tau#tau, ggHH SM LO"), color=(0, 0, 0)),
-            Process("ggf_sm", Label(root="HH #rightarrow bb#tau#tau, ggHH SM"), color=(0, 0, 0)),
-            Process("vbf_sm", Label(root="HH #rightarrow bb#tau#tau, VBF SM"), color=(0, 0, 0)),
+            Process("ggf_lo", Label(root="ggHH SM LO"), color=(0, 0, 0)),
+            Process("ggf_sm", Label(root="ggHH SM"), color=(0, 0, 0)),
+            Process("vbf_sm", Label(root="VBFHH SM"), color=(0, 0, 0)),
             Process("htautau_ggf", Label(root="H #rightarrow #tau#tau, ggH SM"), color=(0, 0, 0)),
             Process("htautau_vbf", Label(root="H #rightarrow #tau#tau, VBF SM"), color=(0, 0, 0)),
             Process("tt_fh", Label(root="t#bar{t}, FH"), color=(0, 0, 0)),
             Process("tt_dl", Label(root="t#bar{t}, DL"), color=(0, 0, 0)),
             Process("wjets", Label(root="W + Jets"), color=(0, 0, 0)),
+            Process("dy", Label(root="DY"), color=(0, 0, 0)),
             # rate computation
             Process("nu", Label(root="nu gun"), color=(255, 255, 255)),
             Process("zero_bias", Label(root="zero bias"), color=(255, 255, 255)),
-            Process("run322599", Label(root="Run 322599"), color=(255, 255, 255)),
+            Process("run2_zero_bias", Label(root="Run 2 - Zero Bias"), color=(255, 255, 255)),
         ]
         return ObjectCollection(processes)
 
@@ -86,7 +87,13 @@ class Config():
                 self.processes.get("wjets")),
             Dataset("tt_fh",
                 "/eos/user/j/jleonhol/HH/TTToHadronic_TuneCP5_13TeV-powheg-pythia8",
-                self.processes.get("tt_fh")),
+                self.processes.get("tt_fh"),
+                skipFiles=[
+                    "/eos/user/j/jleonhol/HH/TTToHadronic_TuneCP5_13TeV-powheg-pythia8/NANO_NANO_3-7.root"
+                ]),
+            Dataset("dy",
+                "/eos/user/j/jleonhol/HH/DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8",
+                self.processes.get("dy")),
             Dataset("nu",
                 "/eos/cms/store/group/dpg_trigger/comm_trigger/L1Trigger/stempl/condor/menu_Nu_11_0_X_1614189426/",
                 self.processes.get("nu"),
@@ -96,11 +103,18 @@ class Config():
             Dataset("zero_bias",
                 "/eos/cms/store/group/dpg_trigger/comm_trigger/L1Trigger/TEAshiftNtuples/ZeroBias2018D-week36-l1t-integration-v100p0-CMSSW-10_2_1/ZeroBias/",
                 self.processes.get("zero_bias"),
-                rate_scaling=2./1.587),
+                rate_scaling=2. / 1.587),
             Dataset("run322599",
                 "/eos/home-j/jleonhol/HH/run322599/",
-                self.processes.get("run322599"),
-                rate_scaling=2./1.803),
+                self.processes.get("run2_zero_bias"),
+                label="322599",
+                rate_scaling=2. / 1.803),
+            Dataset("run322079",
+                "/eos/cms/store/group/dpg_trigger/comm_trigger/L1Trigger/TEAshiftNtuples/ZeroBias2018D-week36-l1t-integration-v100p0-CMSSW-10_2_1/ZeroBias/"
+                "crab_ZeroBias2018D-week36-l1t-integration-v100p0-CMSSW-10_2_1__322079_ZeroBias_Run2018D-v1/180908_184351/0000/",
+                self.processes.get("run2_zero_bias"),
+                label="322079",
+                rate_scaling=2. / 1.8135),
         ]
         return ObjectCollection(datasets)
     
