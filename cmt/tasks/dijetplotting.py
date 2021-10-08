@@ -13,12 +13,13 @@ from plotting_tools.root.labels import get_labels
 from cmt.base_tasks.base import ( 
     DatasetTaskWithCategory, DatasetWrapperTask, HTCondorWorkflow, InputData, ConfigTaskWithCategory
 )
+
 from cmt.tasks.trigger import (
     AddDiJetTrigger, AddDiJetOffline, ComputeDiJetRate, AsymmDiJetAcceptance, AsymmDiJetRate
 )
 
 from cmt.tasks.plotting import (
-    PlotAcceptance, Plot2D, Plot2DLimitRate, MapAcceptance, RateTask
+    PlotAcceptance, Plot2D, Plot2DLimitRate, MapAcceptance, PlotSymLimitRate
 )
 
 
@@ -148,7 +149,7 @@ class PlotDiJetAcceptance(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWo
             json.dump(stats, json_f, indent=4)
 
 
-class PlotSymDiJetLimitRate(DatasetWrapperTask, ConfigTaskWithCategory, RateTask):
+class PlotSymDiJetLimitRate(PlotSymLimitRate):
     rate_threshold = luigi.FloatParameter(default=12., description="maximum rate threshold "
         "default: 12.")
     rate_low_percentage = luigi.FloatParameter(default=0.05, description="min allowed rate "

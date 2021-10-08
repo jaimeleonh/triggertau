@@ -14,7 +14,9 @@ from cmt.base_tasks.base import (
 )
 from cmt.tasks.trigger import (
     AddTrigger, AddOffline, AddDiJetTrigger, AddDiJetOffline, ComputeRate, ComputeDiJetRate,
-    Rate, AsymmRate, AsymmDiJetRate, Acceptance, AsymmAcceptance, AsymmDiJetAcceptance
+    Rate, AsymmRate, AsymmVBFRate, AsymmDiJetRate, AsymmVBFDiJetRate, Acceptance, AsymmAcceptance,
+    AsymmVBFAcceptance, AsymmKetiAcceptance, AsymmDiJetAcceptance, AsymmVBFDiJetAcceptance,
+    AsymmKetiDiJetAcceptance,
 )
 from cmt.tasks.plotting import PlotAcceptance, Plot2D, PlotRate, MapAcceptance  
 
@@ -373,13 +375,15 @@ class MapTotalAcceptance(MapAcceptance):
         "only for 1 specific dyy value, default: -1")
     dzz_fixed = luigi.FloatParameter(default=-1., description="whether to show results "
         "only for 1 specific dzz value, default: -1")
+    dzzp_fixed = luigi.FloatParameter(default=-1., description="whether to show results "
+        "only for 1 specific dzzp value, default: -1")
         
     xx_range = Rate.xx_range
     yy_range = Rate.yy_range
     zz_range = Rate.zz_range
     dzz_range = Rate.dzz_range
 
-    rate_title = "DoubleIsoTauXX OR DoubleIsoTauYYJetZZ OR DoubleIsoTauDYYDoubleJetDZZ Rate (kHz)"
+    rate_title = "DoubleIsoTauXX OR DoubleIsoTauYYJetZZ OR DoubleIsoTauDYYJetDZZJetDZZ' Rate (kHz)"
     acceptance_title = "Acceptance gain"
 
     def requires(self):
@@ -410,16 +414,20 @@ class MapTotalAcceptance(MapAcceptance):
     def get_postfix(self, postfix):
         save_postfix = super(MapTotalAcceptance, self).get_postfix(postfix)
         if self.dyy_fixed != -1:
-            save_postfix += "_dyy_" + str(self.dyy_fixed)
+            save_postfix += "__dyy_" + str(self.dyy_fixed)
         if self.dzz_fixed != -1:
-            save_postfix += "_dzz_" + str(self.dzz_fixed)
+            save_postfix += "__dzz_" + str(self.dzz_fixed)
+        if self.dzzp_fixed != -1:
+            save_postfix += "__dzzp_" + str(self.dzzp_fixed)
         return save_postfix
 
-    def is_fixed(self, xx, yy, dyy, zz = -1, dzz = -1):
+    def is_fixed(self, xx, yy, dyy, zz = -1, dzz = -1, dzzp = -1):
         value = super(MapTotalAcceptance, self).is_fixed(xx, yy, zz)
         if self.dyy_fixed != -1 and dyy != self.dyy_fixed:
             return False
         if self.dzz_fixed != -1 and dzz != self.dzz_fixed and dzz != -1:
+            return False
+        if self.dzzp_fixed != -1 and dzzp != self.dzzp_fixed and dzzp != -1:
             return False
         return value
 
@@ -455,7 +463,7 @@ class MapTotalAcceptance(MapAcceptance):
                     nbinsdZ, self.dzz_range[0], self.dzz_range[1],
                     nbinsdZ, self.dzz_range[0], self.dzz_range[1]
                 )
-                histos[(dataset, category)]["%s, %s, %s" % (x, y, dy)] = ROOT.TH23F(*hmodel)
+                histos[(dataset, category)]["%s, %s, %s" % (x, y, dy)] = ROOT.TH3F(*hmodel)
             for elem in inputs["acceptance_%s" % postfix].collection.targets.values():
                 rootfile = ROOT.TFile.Open(elem["root"].path)
                 for x, y, dy in itertools.product(
@@ -478,7 +486,7 @@ class MapTotalAcceptance(MapAcceptance):
                 range(*self.xx_range), range(*self.yy_range), range(*self.yy_range)):
             if not self.is_fixed(x, y, dy):
                 continue
-            hmodel = ("histo_{}_{}_{}".format(x, y, dy), "; YYp; ZZp",
+            hmodel = ("histo_{}_{}_{}".format(x, y, dy), "; ZZ; dZZ; dZZp",
                 nbinsZ, self.zz_range[0], self.zz_range[1],
                 nbinsdZ, self.dzz_range[0], self.dzz_range[1],
                 nbinsdZ, self.dzz_range[0], self.dzz_range[1]
@@ -511,25 +519,26 @@ class MapTotalAcceptance(MapAcceptance):
                     continue
             histos["rate"]["%s, %s, %s" % (x, y, dy)].Scale((scaling * 2760. * 11246.) / (1000 * nevents))
             for z, dz in itertools.product(range(*self.zz_range), range(*self.dzz_range)):
-                if not self.is_fixed(x, y, dy, z, dz):
-                    continue
-                rate = histos["rate"]["%s, %s, %s" % (x, y, dy)].GetBinContent(
-                    z - self.zz_range[0] + 1,
-                    dz - self.dzz_range[0] + 1,
-                    dz - self.dzz_range[0] + 1)
-                if (rate > self.max_rate or rate < self.min_rate):
-                    continue
-                parameters = "{},{},{},{},{}".format(x, y, z, dy, dz)
-                for dataset, category in zip(self.datasets, self.categories):
-                    acceptance = histos[(dataset, category)]["%s, %s, %s" % (x, y, dy)].GetBinContent(
+                for dzp in range(self.dzz_range[0], dz + 1):
+                    if not self.is_fixed(x, y, dy, z, dz, dzp):
+                        continue
+                    rate = round(histos["rate"]["%s, %s, %s" % (x, y, dy)].GetBinContent(
                         z - self.zz_range[0] + 1,
                         dz - self.dzz_range[0] + 1,
-                        dz - self.dzz_range[0] + 1
-                    ) / float(den[(dataset, category)])
+                        dzp - self.dzz_range[0] + 1), 3)
+                    if (rate > self.max_rate or rate < self.min_rate):
+                        continue
+                    parameters = "{},{},{},{},{},{}".format(x, y, z, dy, dz, dzp)
+                    for dataset, category in zip(self.datasets, self.categories):
+                        acceptance = round(histos[(dataset, category)]["%s, %s, %s" % (x, y, dy)].GetBinContent(
+                            z - self.zz_range[0] + 1,
+                            dz - self.dzz_range[0] + 1,
+                            dzp - self.dzz_range[0] + 1
+                        ) / float(den[(dataset, category)]), 3)
 
-                    # if acceptance < self.min_acceptance or acceptance > self.max_acceptance:
-                    #     continue
-                    acceptances_to_plot[(dataset, category)].append((parameters, rate, acceptance))
+                        # if acceptance < self.min_acceptance or acceptance > self.max_acceptance:
+                        #     continue
+                        acceptances_to_plot[(dataset, category)].append((parameters, rate, acceptance))
 
         self.plot_stuff(acceptances_to_plot)
 
@@ -578,9 +587,9 @@ class MapAsymmAcceptance(MapAcceptance):
     def get_postfix(self, postfix):
         save_postfix = super(MapAsymmAcceptance, self).get_postfix(postfix)
         if self.xx_symmetric:
-            save_postfix += "_xx_sym"
+            save_postfix += "__xx_sym"
         if self.yy_symmetric:
-            save_postfix += "_yy_sym"
+            save_postfix += "__yy_sym"
         return save_postfix
 
     def check_symmetry(self, x, xp, y, yp):
@@ -700,8 +709,10 @@ class MapAsymmAcceptance(MapAcceptance):
                 if self.yyp_fixed != -1 and self.yyp_fixed != yp:
                     continue
 
+                # histos["rate"]["%s, %s, %s, %s" % (x, xp, y, yp)].Scale(
+                    # (scaling * 2760. * 11246.) / (1000 * nevents))
                 histos["rate"]["%s, %s, %s, %s" % (x, xp, y, yp)].Scale(
-                    (scaling * 2760. * 11246.) / (1000 * nevents))
+                    (60 * 2760. * 11246.) / (1000 * nevents))
                 for z in range(*self.zz_range):
                     if self.zz_fixed != -1 and self.zz_fixed != z:
                         continue
@@ -715,6 +726,276 @@ class MapAsymmAcceptance(MapAcceptance):
                             "%s, %s, %s, %s" % (x, xp, y, yp)].GetBinContent(
                                 z - self.zz_range[0] + 1
                         ) / float(den[(dataset, category)])
+
+                        # if acceptance < self.min_acceptance or acceptance > self.max_acceptance:
+                        #     continue
+                        acceptances_to_plot[(dataset, category)].append((parameters, rate, acceptance))
+
+        self.plot_stuff(acceptances_to_plot)
+
+
+class MapAsymmVBFAcceptance(MapAsymmAcceptance):
+    use_vbf_rate = luigi.BoolParameter(default=False, description="whether to use "
+        "the the vbf trigger for the rate computation, default: False")
+    # rate_title = "IsoTauXXIsoTauXX' OR IsoTauYYIsoTauYY'JetZZ OR L1 VBF Rate (kHz)"
+    
+    def requires(self):
+        reqs = {}
+        for dataset, category in zip(self.datasets, self.categories):
+            postfix = "{}_{}".format(dataset.name, category.name)
+            available_branches = len(dataset.get_files())
+            if self.only_available_branches:
+                branches = []
+                for i in range(available_branches):
+                    ok = True
+                    if AsymmVBFAcceptance.req(self, version=self.acceptance_version,
+                            dataset_name=dataset.name, category_name=category.name,
+                            branch=i).complete():
+                        branches.append(i)
+                reqs["acceptance_%s" % postfix] = AsymmVBFAcceptance.req(self,
+                    version=self.acceptance_version, dataset_name=dataset.name,
+                    category_name=category.name, branches=branches)
+            else:
+                reqs["acceptance_%s" % postfix] = AsymmVBFAcceptance.req(self,
+                    version=self.acceptance_version, dataset_name=dataset.name,
+                    category_name=category.name)
+        if self.use_vbf_rate:
+            reqs["rate"] = AsymmVBFRate.req(self, version=self.rate_version,
+                dataset_name=self.rate_dataset_name, category_name=self.rate_category_name)
+        else:
+            reqs["rate"] = AsymmRate.req(self, version=self.rate_version,
+                dataset_name=self.rate_dataset_name, category_name=self.rate_category_name)
+        return reqs
+
+    def store_parts(self):
+        parts = super(MapAsymmVBFAcceptance, self).store_parts()
+        if self.use_vbf_rate:
+            parts["rate"] = "{}__{}__withVBF".format(self.rate_dataset_name, self.rate_version)
+        return parts
+
+
+class MapAsymmKetiAcceptance(MapAsymmVBFAcceptance):
+    #rate_title = "IsoTauXXIsoTauXX' OR IsoTauYYIsoTauYY'JetZZ OR L1 VBF Rate (kHz)"
+    
+    def requires(self):
+        reqs = {}
+        for dataset, category in zip(self.datasets, self.categories):
+            postfix = "{}_{}".format(dataset.name, category.name)
+            available_branches = len(dataset.get_files())
+            if self.only_available_branches:
+                branches = []
+                for i in range(available_branches):
+                    ok = True
+                    if AsymmKetiAcceptance.req(self, version=self.acceptance_version,
+                            dataset_name=dataset.name, category_name=category.name,
+                            branch=i).complete():
+                        branches.append(i)
+                reqs["acceptance_%s" % postfix] = AsymmKetiAcceptance.req(self,
+                    version=self.acceptance_version, dataset_name=dataset.name,
+                    category_name=category.name, branches=branches)
+            else:
+                reqs["acceptance_%s" % postfix] = AsymmKetiAcceptance.req(self,
+                    version=self.acceptance_version, dataset_name=dataset.name,
+                    category_name=category.name)
+        if self.use_vbf_rate:
+            reqs["rate"] = AsymmKetiRate.req(self, version=self.rate_version,
+                dataset_name=self.rate_dataset_name, category_name=self.rate_category_name)
+        else:
+            reqs["rate"] = AsymmRate.req(self, version=self.rate_version,
+                dataset_name=self.rate_dataset_name, category_name=self.rate_category_name)
+        return reqs
+
+
+class MapVBFGainAcceptance(MapAsymmKetiAcceptance):
+    #rate_title = "IsoTauXXIsoTauXX' OR IsoTauYYIsoTauYY'JetZZ OR L1 VBF Rate (kHz)"
+    
+    def requires(self):
+        reqs = {}
+        for dataset, category in zip(self.datasets, self.categories):
+            postfix = "{}_{}".format(dataset.name, category.name)
+            # available_branches = len(dataset.get_files())
+            # if self.only_available_branches:
+                # branches = []
+                # for i in range(available_branches):
+                    # ok = True
+                    # if AsymmKetiAcceptance.req(self, version=self.acceptance_version,
+                            # dataset_name=dataset.name, category_name=category.name,
+                            # branch=i).complete():
+                        # branches.append(i)
+                # reqs["acceptance_%s" % postfix] = AsymmKetiAcceptance.req(self,
+                    # version=self.acceptance_version, dataset_name=dataset.name,
+                    # category_name=category.name, branches=branches)
+            # else:
+            reqs["vbf_acceptance_%s" % postfix] = AsymmKetiAcceptance.vreq(self,
+                # version=self.acceptance_version,
+                dataset_name=dataset.name,
+                category_name=category.name)
+            reqs["taujet_acceptance_%s" % postfix] = AsymmAcceptance.vreq(self,
+                # version=self.acceptance_version,
+                dataset_name=dataset.name,
+                category_name=category.name)
+        if self.use_vbf_rate:
+            reqs["rate"] = AsymmKetiRate.req(self, version=self.rate_version,
+                dataset_name=self.rate_dataset_name, category_name=self.rate_category_name)
+        else:
+            reqs["rate"] = AsymmRate.req(self, version=self.rate_version,
+                dataset_name=self.rate_dataset_name, category_name=self.rate_category_name)
+        return reqs
+
+    @law.decorator.notify
+    def run(self):
+        from copy import deepcopy
+        import json
+        from collections import OrderedDict
+
+        ROOT = import_root()
+        ROOT.gStyle.SetOptStat(0)
+        ROOT.gStyle.SetPaintTextFormat("3.2f")
+        inputs = self.input()
+        output = self.output()
+        den = {}
+        histos = {}
+
+        # Create histos for ditau or ditau_jet or ditau_dijet
+        nbinsZ = self.zz_range[1] - self.zz_range[0]
+
+        # acceptance computation
+        for dataset, category in zip(self.datasets, self.categories):
+            postfix = "{}_{}".format(dataset.name, category.name)
+            den[(dataset, category)] = {}
+            histos[(dataset, category)] = {}
+            for x, y in itertools.product(
+                    range(*self.xx_range), range(*self.yy_range)):
+                for xp, yp in itertools.product(
+                        range(self.xx_range[0], x + 1), range(self.yy_range[0], y + 1)):
+
+                    if not self.check_symmetry(x, xp, y, yp):
+                        continue
+
+                    hmodel = ("vbf_histo_total_{}_{}_{}_{}_{}".format(postfix, x, xp, y, yp), "; ZZ; Acceptance",
+                        nbinsZ, self.zz_range[0], self.zz_range[1],
+                    )
+                    histos[(dataset, category)]["%s, %s, %s, %s" % (x, xp, y, yp)] = ROOT.TH1F(*hmodel)
+                    hmodel = ("den_histo_total_{}_{}_{}_{}_{}".format(postfix, x, xp, y, yp), "; ZZ; Acceptance",
+                        nbinsZ, self.zz_range[0], self.zz_range[1],
+                    )
+                    den[(dataset, category)]["%s, %s, %s, %s" % (x, xp, y, yp)] = ROOT.TH1F(*hmodel)
+            for elem in inputs["vbf_acceptance_%s" % postfix].collection.targets.values():
+                rootfile = ROOT.TFile.Open(elem["root"].path)
+                for x, y in itertools.product(
+                        range(*self.xx_range), range(*self.yy_range)):
+                    for xp, yp in itertools.product(
+                            range(self.xx_range[0], x + 1), range(self.yy_range[0], y + 1)):
+
+                        if not self.check_symmetry(x, xp, y, yp):
+                            continue
+
+                        histos[(dataset, category)]["%s, %s, %s, %s" % (x, xp, y, yp)].Add(
+                            rootfile.Get("histo_ditau_{0}_{1}__ditau_{2}_{3}_jet".format(
+                                x, xp, y, yp)).Clone())
+                rootfile.Close()
+            for elem in inputs["taujet_acceptance_%s" % postfix].collection.targets.values():
+                rootfile = ROOT.TFile.Open(elem["root"].path)
+                for x, y in itertools.product(
+                        range(*self.xx_range), range(*self.yy_range)):
+                    for xp, yp in itertools.product(
+                            range(self.xx_range[0], x + 1), range(self.yy_range[0], y + 1)):
+
+                        if not self.check_symmetry(x, xp, y, yp):
+                            continue
+
+                        den[(dataset, category)]["%s, %s, %s, %s" % (x, xp, y, yp)].Add(
+                            rootfile.Get("histo_ditau_{0}_{1}__ditau_{2}_{3}_jet".format(
+                                x, xp, y, yp)).Clone())
+                rootfile.Close()
+
+        # rate computation
+        histos["rate"] = {}
+        scaling = self.config.datasets.get(self.rate_dataset_name).get_aux("rate_scaling")
+        for x, y in itertools.product(
+                range(*self.xx_range), range(*self.yy_range)):
+            for xp, yp in itertools.product(
+                    range(self.xx_range[0], x + 1), range(self.yy_range[0], y + 1)):
+
+                if not self.check_symmetry(x, xp, y, yp):
+                        continue
+
+                hmodel = ("rate_histo_{}_{}_{}_{}_{}".format(postfix, x, xp, y, yp),
+                    "; ZZ; Acceptance", nbinsZ, self.zz_range[0], self.zz_range[1]
+                )
+                histos["rate"]["%s, %s, %s, %s" % (x, xp, y, yp)] = ROOT.TH1F(*hmodel)
+
+        nevents = 0
+        for elem in inputs["rate"].collection.targets.values():
+            rootfile = ROOT.TFile.Open(elem["root"].path)
+            for x, y in itertools.product(
+                    range(*self.xx_range), range(*self.yy_range)):
+                for xp, yp in itertools.product(
+                        range(self.xx_range[0], x + 1), range(self.yy_range[0], y + 1)):
+
+                    if not self.check_symmetry(x, xp, y, yp):
+                        continue
+
+                    histos["rate"]["%s, %s, %s, %s" % (x, xp, y, yp)].Add(
+                        rootfile.Get("histo_ditau_{0}_{1}__ditau_{2}_{3}_jet".format(
+                            x, xp, y, yp)).Clone())
+            rootfile.Close()
+            jsonfile = elem["stats"].path
+            with open(jsonfile) as f:
+                d = json.load(f)
+            nevents += d["nevents"]
+            
+        # get points if needed
+        points_to_use = self.get_points()
+
+        acceptances_to_plot = OrderedDict()
+        for dataset, category in zip(self.datasets, self.categories):
+            acceptances_to_plot[(dataset, category)] = []
+
+        for x, y in itertools.product(
+                range(*self.xx_range), range(*self.yy_range)):
+            for xp, yp in itertools.product(
+                    range(self.xx_range[0], x + 1), range(self.yy_range[0], y + 1)):
+
+                if not self.check_symmetry(x, xp, y, yp):
+                    continue
+
+                if self.xx_fixed != -1 and self.xx_fixed != x:
+                    continue
+                if self.xxp_fixed != -1 and self.xxp_fixed != xp:
+                    continue
+                if self.yy_fixed != -1 and self.yy_fixed != y:
+                    continue
+                if self.yyp_fixed != -1 and self.yyp_fixed != yp:
+                    continue
+
+                # histos["rate"]["%s, %s, %s, %s" % (x, xp, y, yp)].Scale(
+                    # (scaling * 2760. * 11246.) / (1000 * nevents))
+                histos["rate"]["%s, %s, %s, %s" % (x, xp, y, yp)].Scale(
+                    (60 * 2760. * 11246.) / (1000 * nevents))
+                for z in range(*self.zz_range):
+                    if points_to_use:
+                        if (x, xp, y, yp, z) not in points_to_use:
+                            continue
+
+                    if self.zz_fixed != -1 and self.zz_fixed != z:
+                        continue
+                    rate = histos["rate"]["%s, %s, %s, %s" % (x, xp, y, yp)].GetBinContent(
+                        z - self.zz_range[0] + 1)
+                    if (rate > self.max_rate or rate < self.min_rate):
+                        continue
+                    parameters = "%s,%s,%s,%s,%s" % (x, xp, y, yp, z)
+                    for dataset, category in zip(self.datasets, self.categories):
+                        acceptance = (
+                            float(
+                                histos[(dataset, category)]["%s, %s, %s, %s" % (x, xp, y, yp)
+                                    ].GetBinContent(z - self.zz_range[0] + 1)
+                            ) / 
+                            float(
+                                den[(dataset, category)]["%s, %s, %s, %s" % (x, xp, y, yp)
+                                    ].GetBinContent(z - self.zz_range[0] + 1)
+                            )
+                        )
 
                         # if acceptance < self.min_acceptance or acceptance > self.max_acceptance:
                         #     continue
@@ -741,19 +1022,24 @@ class MapAsymmDiJetAcceptance(MapAsymmAcceptance):
         for dataset, category in zip(self.datasets, self.categories):
             postfix = "{}_{}".format(dataset.name, category.name)
             available_branches = len(dataset.get_files())
-            if self.only_available_branches:
-                branches = []
-                for i in range(available_branches):
-                    ok = True
-                    if AsymmAcceptance.req(self, version=self.acceptance_version,
-                            dataset_name=dataset.name, category_name=category.name,
-                            branch=i).complete():
-                        branches.append(i)
+            # if self.only_available_branches:
+                # branches = []
+                # for i in range(available_branches):
+                    # ok = True
+                    # if AsymmAcceptance.req(self, version=self.acceptance_version,
+                            # dataset_name=dataset.name, category_name=category.name,
+                            # branch=i).complete():
+                        # branches.append(i)
+                # reqs["acceptance_%s" % postfix] = AsymmDiJetAcceptance.req(self,
+                    # version=self.acceptance_version, dataset_name=dataset.name,
+                    # category_name=category.name, branches=branches)
+            # else:
+            if not self.use_vbf_trigger:
                 reqs["acceptance_%s" % postfix] = AsymmDiJetAcceptance.req(self,
                     version=self.acceptance_version, dataset_name=dataset.name,
-                    category_name=category.name, branches=branches)
+                    category_name=category.name)
             else:
-                reqs["acceptance_%s" % postfix] = AsymmDiJetAcceptance.req(self,
+                reqs["acceptance_%s" % postfix] = AsymmVBFDiJetAcceptance.req(self,
                     version=self.acceptance_version, dataset_name=dataset.name,
                     category_name=category.name)
         reqs["rate"] = AsymmDiJetRate.req(self, version=self.rate_version,
@@ -763,7 +1049,7 @@ class MapAsymmDiJetAcceptance(MapAsymmAcceptance):
     def get_postfix(self, postfix):
         save_postfix = super(MapAsymmDiJetAcceptance, self).get_postfix(postfix)
         if self.zz_symmetric:
-            save_postfix += "_zz_sym"
+            save_postfix += "__zz_sym"
         return save_postfix
 
     def check_symmetry(self, x, xp, y, yp, z=-1, zp=-1):
@@ -913,3 +1199,75 @@ class MapAsymmDiJetAcceptance(MapAsymmAcceptance):
                         acceptances_to_plot[(dataset, category)].append((parameters, rate, acceptance))
 
         self.plot_stuff(acceptances_to_plot)
+
+
+class MapAsymmVBFDiJetAcceptance(MapAsymmDiJetAcceptance):
+    use_vbf_rate = luigi.BoolParameter(default=False, description="whether to use "
+        "the the vbf trigger for the rate computation, default: False")
+    #rate_title = "IsoTauXXIsoTauXX' OR IsoTauYYIsoTauYY'JetZZJetZZ' OR L1 VBF Rate (kHz)"
+
+    def requires(self):
+        reqs = {}
+        for dataset, category in zip(self.datasets, self.categories):
+            postfix = "{}_{}".format(dataset.name, category.name)
+            available_branches = len(dataset.get_files())
+            if self.only_available_branches:
+                branches = []
+                for i in range(available_branches):
+                    ok = True
+                    if AsymmVBFDiJetAcceptance.req(self, version=self.acceptance_version,
+                            dataset_name=dataset.name, category_name=category.name,
+                            branch=i).complete():
+                        branches.append(i)
+                reqs["acceptance_%s" % postfix] = AsymmVBFDiJetAcceptance.req(self,
+                    version=self.acceptance_version, dataset_name=dataset.name,
+                    category_name=category.name, branches=branches)
+            else:
+                reqs["acceptance_%s" % postfix] = AsymmVBFDiJetAcceptance.req(self,
+                    version=self.acceptance_version, dataset_name=dataset.name,
+                    category_name=category.name)
+        if self.use_vbf_rate:
+            reqs["rate"] = AsymmVBFDiJetRate.req(self, version=self.rate_version,
+                dataset_name=self.rate_dataset_name, category_name=self.rate_category_name)
+        else:
+            reqs["rate"] = AsymmDiJetRate.req(self, version=self.rate_version,
+                dataset_name=self.rate_dataset_name, category_name=self.rate_category_name)
+        return reqs
+
+    def store_parts(self):
+        parts = super(MapAsymmVBFDiJetAcceptance, self).store_parts()
+        if self.use_vbf_rate:
+            parts["rate"] = "{}__{}__withVBF".format(self.rate_dataset_name, self.rate_version)
+        return parts
+
+
+class MapAsymmKetiDiJetAcceptance(MapAsymmVBFDiJetAcceptance):
+    #rate_title = "IsoTauXXIsoTauXX' OR IsoTauYYIsoTauYY'JetZZJetZZ' OR new L1 VBF Rate (kHz)"
+
+    def requires(self):
+        reqs = {}
+        for dataset, category in zip(self.datasets, self.categories):
+            postfix = "{}_{}".format(dataset.name, category.name)
+            available_branches = len(dataset.get_files())
+            if self.only_available_branches:
+                branches = []
+                for i in range(available_branches):
+                    ok = True
+                    if AsymmKetiDiJetAcceptance.req(self, version=self.acceptance_version,
+                            dataset_name=dataset.name, category_name=category.name,
+                            branch=i).complete():
+                        branches.append(i)
+                reqs["acceptance_%s" % postfix] = AsymmKetiDiJetAcceptance.req(self,
+                    version=self.acceptance_version, dataset_name=dataset.name,
+                    category_name=category.name, branches=branches)
+            else:
+                reqs["acceptance_%s" % postfix] = AsymmKetiDiJetAcceptance.req(self,
+                    version=self.acceptance_version, dataset_name=dataset.name,
+                    category_name=category.name)
+        if self.use_vbf_rate:
+            reqs["rate"] = AsymmKetiDiJetRate.req(self, version=self.rate_version,
+                dataset_name=self.rate_dataset_name, category_name=self.rate_category_name)
+        else:
+            reqs["rate"] = AsymmDiJetRate.req(self, version=self.rate_version,
+                dataset_name=self.rate_dataset_name, category_name=self.rate_category_name)
+        return reqs

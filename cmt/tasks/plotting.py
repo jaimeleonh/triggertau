@@ -25,7 +25,7 @@ class PlotAcceptance(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflo
 
     xx_range = law.CSVParameter(default=("32", "33"))
     yy_range = (20, 33)
-    zz_range = (20, 160)    
+    zz_range = (20, 160)
     #xx_range = (20, 21)
     #yy_range = (20, 21)
     #zz_range = (20, 21)
@@ -565,6 +565,11 @@ class PlotSymLimitRate(DatasetWrapperTask, ConfigTaskWithCategory, RateTask):
                 str(self.rate_threshold).replace(".", "_")))
         return output
 
+    def store_parts(self):
+        parts = super(PlotSymLimitRate, self).store_parts()
+        parts["rate"] = "{}__{}".format(self.rate_dataset_name, self.rate_version)
+        return parts
+
     @law.decorator.notify
     def run(self):
         from copy import deepcopy
@@ -700,6 +705,88 @@ class PlotSymLimitRate(DatasetWrapperTask, ConfigTaskWithCategory, RateTask):
                 json.dump(dict_to_save, f, indent=4)
 
 
+class PlotSymDiTauJetRate(DatasetWrapperTask, ConfigTaskWithCategory):
+    yy_range = AsymmRate.yy_range
+    zz_range = AsymmRate.zz_range
+    
+    def __init__(self, *args, **kwargs):
+        super(PlotSymDiTauJetRate, self).__init__(*args, **kwargs)
+
+    def requires(self):
+        reqs = {}
+        for dataset in self.datasets:
+            reqs[dataset.name] = AsymmRate.vreq(self, dataset_name=dataset.name)
+        return reqs
+
+    def output(self):
+        dataset_tag = "_".join([dataset.get_aux("label") for dataset in self.datasets])
+        return {
+            "plot": self.local_target("plot2D_ditaujet_%s.pdf" % dataset_tag),
+            "json": self.local_target("plot2D_ditaujet_%s.json" % dataset_tag)
+        }
+        return output
+
+    @law.decorator.notify
+    def run(self):
+        from copy import deepcopy
+        import json
+        from collections import OrderedDict
+
+        ROOT = import_root()
+        ROOT.gStyle.SetOptStat(0)
+        ROOT.gStyle.SetPaintTextFormat("3.2f")
+        inputs = self.input()
+        output = self.output()
+        den = {}
+        histos = {}
+
+        # Create histos
+        nbinsY = self.yy_range[1] - self.yy_range[0]
+        nbinsZ = self.zz_range[1] - self.zz_range[0]
+        hmodel = ("rate_histo", "; YY; ZZ",
+            nbinsY, self.yy_range[0], self.yy_range[1],
+            nbinsZ, self.zz_range[0], self.zz_range[1]
+        )
+        rate_histo = ROOT.TH2F(*hmodel)
+        rate_histo.Sumw2()
+
+        nevents = 0  #FIXME to include more than one run
+        for dataset in self.datasets:
+            for elem in inputs[dataset.name].collection.targets.values():
+                rootfile = ROOT.TFile.Open(elem["root"].path)
+                for y in range(*self.yy_range):
+                    tmp_histo = rootfile.Get("histo_ditau_{0}_{0}_jet".format(y)).Clone()
+                    for z in range(*self.zz_range):
+                        rate_histo.Fill(y, z, tmp_histo.GetBinContent(z - self.zz_range[0]))
+                rootfile.Close()
+                jsonfile = elem["stats"].path
+                with open(jsonfile) as f:
+                    d = json.load(f)
+                nevents += d["nevents"]
+
+        rate_histo.Scale((60. * 2760. * 11246.) / (1000 * nevents))
+        c = ROOT.TCanvas("", "", 800, 800)
+        c.SetLogz()
+        rate_histo.Draw("text, colz")
+        texts = get_labels(upper_right="           {} Simulation (13 TeV)".format(
+                self.config.year))
+        for text in texts:
+            text.Draw("same")
+        c.SaveAs(create_file_dir(self.output()["plot"].path))
+
+        dict_to_save = {}
+        for y in range(*self.yy_range):
+            for z in range(*self.zz_range):
+                value = rate_histo.GetBinContent(y - self.yy_range[0], z - self.zz_range[0])
+                error = rate_histo.GetBinError(y - self.yy_range[0], z - self.zz_range[0])
+                dict_to_save["%s, %s" % (y, z)] = {
+                    "value": value,
+                    "error": error
+                }
+        with open(create_file_dir(self.output()["json"].path), "w") as f:
+            json.dump(dict_to_save, f, indent=4)
+
+
 class Plot2DLimitRate(Plot2D, RateTask):
     rate_threshold = luigi.FloatParameter(default=18., description="maximum rate threshold "
         "default: 18.")
@@ -825,17 +912,20 @@ class Plot2DLimitRate(Plot2D, RateTask):
 
 
 class PlotDiTauRate(DatasetWrapperTask, ConfigTaskWithCategory):
+    pu_scaling = luigi.FloatParameter(default=60., description="value to scale by PU "
+        "default: 60.")
     xx_range = DiTauRate.xx_range
     def requires(self):
         reqs = {}
         for dataset in self.datasets:
-            reqs[dataset.name] = DiTauRate.req(self, dataset_name=dataset.name)
+            reqs[dataset.name] = DiTauRate.vreq(self, dataset_name=dataset.name)
         return reqs
 
     def output(self):
+        dataset_tag = "_".join([dataset.get_aux("label") for dataset in self.datasets])
         return {
-            "plot": self.local_target("plot2D_ditau.pdf"),
-            "json": self.local_target("plot2D_ditau.json")
+            "plot": self.local_target("plot2D_ditau_%s.pdf" % dataset_tag),
+            "json": self.local_target("plot2D_ditau_%s.json" % dataset_tag)
         }
     
     @law.decorator.notify
@@ -849,11 +939,12 @@ class PlotDiTauRate(DatasetWrapperTask, ConfigTaskWithCategory):
         output = self.output()
         nevents = 0
         for dataset in self.datasets:
-            scaling = dataset.get_aux("rate_scaling")
+            # scaling = dataset.get_aux("rate_scaling")
             for elem in inp[dataset.name].collection.targets.values():
                 tf = ROOT.TFile.Open(elem["root"].path)
                 tmp_histo = tf.Get("histo_ditau").Clone()
-                tmp_histo.Scale(scaling)
+                #tmp_histo.Scale(scaling)
+
                 histo2D.Add(tmp_histo)
                 tf.Close()
 
@@ -861,27 +952,37 @@ class PlotDiTauRate(DatasetWrapperTask, ConfigTaskWithCategory):
                 with open(jsonfile) as f:
                     d = json.load(f)
                 nevents += d["nevents"]
-        histo2D.Scale((2760. * 11246.) / (1000 * nevents))
+
+        histo2D.Scale((2760. * 11246. * self.pu_scaling) / (1000 * nevents))
+
+        for xxp in range(*self.xx_range):
+            for xx in range(self.xx_range[0], xxp):
+                histo2D.SetBinContent(xx - self.xx_range[0] + 1, xxp - self.xx_range[0] + 1, 0)
 
         # plot
         c = ROOT.TCanvas("", "", 800, 800)
         histo2D.Draw("text, colz")
+        inner_text = (["Run" + ("s " if len(self.datasets) > 1 else " ") 
+            + ", ".join([dataset.get_aux("label") for dataset in self.datasets])]
+            if all(["run" in dataset.name.lower() for dataset in self.datasets])
+            else [", ".join([dataset.get_aux("label") for dataset in self.datasets])])
         texts = get_labels(upper_right="           {} Simulation (13 TeV)".format(
                 self.config.year),
-            inner_text=["Run" + ("s " if len(self.datasets) > 1 else " ") 
-                + ", ".join([dataset.get_aux("label") for dataset in self.datasets])])
+            inner_text=inner_text)
         for text in texts:
             text.Draw("same")
         c.SaveAs(create_file_dir(output["plot"].path))
 
         histo_dict = {}
-        for xx, xxp in itertools.product(range(*self.xx_range), range(*self.xx_range)):
-            histo_dict["%s, %s" % (xx, xxp)] = {
-                "value": histo2D.GetBinContent(xx - self.xx_range[0] + 1,
-                    xxp - self.xx_range[0] + 1),
-                "error": histo2D.GetBinError(xx - self.xx_range[0] + 1,
-                    xxp - self.xx_range[0] + 1)
-            }
+        #for xx, xxp in itertools.product(range(*self.xx_range), range(*self.xx_range)):
+        for xx in range(*self.xx_range):
+            for xxp in range(self.xx_range[0], xx + 1):
+                histo_dict["%s, %s" % (xx, xxp)] = {
+                    "value": histo2D.GetBinContent(xx - self.xx_range[0] + 1,
+                        xxp - self.xx_range[0] + 1),
+                    "error": histo2D.GetBinError(xx - self.xx_range[0] + 1,
+                        xxp - self.xx_range[0] + 1)
+                }
         with open(create_file_dir(output["json"].path), "w") as f:
             json.dump(histo_dict, f, indent=4)
 
@@ -907,6 +1008,14 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
         "only for 1 specific zz value, default: -1")
     npoints = luigi.IntParameter(default=-1, description="how many points to show in the plots "
         "default: -1 (All)")
+    plot_vs_rate = luigi.BoolParameter(default=True, description="whether to plot "
+        "acceptance vs rate plot, default: True")
+    plot_vs_acceptance = luigi.BoolParameter(default=True, description="whether to plot "
+        "acceptance vs acceptance plot, default: True")
+    use_vbf_trigger = luigi.BoolParameter(default=False, description="whether to include "
+        "the vbf trigger in the acceptance definition, default: True")
+    points_file = luigi.Parameter(default="", description="txt file that includes the n-plets "
+        "to be used")
 
     xx_range = Plot2D.xx_range
     
@@ -970,12 +1079,14 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
 
     def get_postfix(self, postfix):
         save_postfix = postfix
+        if self.use_vbf_trigger:
+            save_postfix += "__with_vbf_trigger"
         if self.xx_fixed != -1:
-            save_postfix += "_xx_" + str(self.xx_fixed)
+            save_postfix += "__xx_" + str(self.xx_fixed)
         if self.yy_fixed != -1:
-            save_postfix += "_yy_" + str(self.yy_fixed)
+            save_postfix += "__yy_" + str(self.yy_fixed)
         if self.zz_fixed != -1:
-            save_postfix += "_zz_" + str(self.zz_fixed)
+            save_postfix += "__zz_" + str(self.zz_fixed)
         return save_postfix
 
     def is_fixed(self, xx, yy, zz):
@@ -989,20 +1100,54 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
 
     def output(self):
         outputs = {}
-        for dataset, category in zip(self.datasets, self.categories):
-            postfix = "{}_{}".format(dataset.name, category.name)
-            save_postfix = self.get_postfix(postfix)
-            outputs["plot_rate_%s" % postfix] = self.local_target("rate_vs_%s.pdf" % save_postfix)
-            outputs["json_rate_%s" % postfix] = self.local_target("rate_vs_%s.json" % save_postfix)
+        if self.plot_vs_rate:
+            for dataset, category in zip(self.datasets, self.categories):
+                postfix = "{}_{}".format(dataset.name, category.name)
+                save_postfix = self.get_postfix(postfix)
+                outputs["plot_rate_%s" % postfix] = self.local_target("rate_vs_%s.pdf" % save_postfix)
+                outputs["json_rate_%s" % postfix] = self.local_target("rate_vs_%s.json" % save_postfix)
 
-        for i in range(len(self.datasets) - 1):
-            for j in range(i + 1, len(self.datasets)):
-                postfix = "{}_{}_{}_{}".format(self.datasets[i].name, self.categories[i].name,
-                    self.datasets[j].name, self.categories[j].name)
-                outputs["plot_%s" % postfix] = self.local_target("acceptance_%s.pdf" % save_postfix)
-                outputs["json_%s" % postfix] = self.local_target("acceptance_%s.json" % save_postfix)
-            
+        if self.plot_vs_acceptance:
+            for i in range(len(self.datasets) - 1):
+                for j in range(i + 1, len(self.datasets)):
+                    postfix = "{}_{}__{}_{}".format(self.datasets[i].name, self.categories[i].name,
+                        self.datasets[j].name, self.categories[j].name)
+                    save_postfix = self.get_postfix(postfix)
+                    outputs["plot_%s" % postfix] = self.local_target("acceptance_%s.pdf" % save_postfix)
+                    # outputs["json_%s" % postfix] = self.local_target("acceptance_%s.json" % save_postfix)
+        if self.npoints != -1:
+            postfix = ""
+            save_postfix = self.get_postfix(postfix)
+            outputs["table_txt"] = self.local_target("table%s.txt" % save_postfix)
+            outputs["table_tex"] = self.local_target("table%s.tex" % save_postfix)
         return outputs
+
+    def store_parts(self):
+        parts = super(MapAcceptance, self).store_parts()
+        parts["rate"] = "{}__{}".format(self.rate_dataset_name, self.rate_version)
+        return parts
+
+    def get_points(self):
+        """
+        Returns the n-plets to be used in the computation
+        The file's first column must include the parameters separated by commas.
+        """
+        print self.points_file
+        if self.points_file:
+            points = []
+            with open(self.points_file) as f:
+                lines = f.readlines()
+                for line in lines:
+                    line = line.strip().split(" ")
+                    if "," not in line[0]:
+                        continue
+                    line = line[0].strip().split(",")
+                    points.append(tuple([int(elem) for elem in line]))  
+            from pprint import pprint
+            pprint(points)
+            return points
+        else:
+            return None
 
 #    def complete(self):
 #        return ConfigTask
@@ -1043,6 +1188,7 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
         plt.close('all')
 
     def plot_stuff(self, acceptances_to_plot):
+        import tabulate
         print "\n***********************************\n"
 
         for dataset, category, ranges in zip(self.datasets, self.categories,
@@ -1055,58 +1201,91 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
             rates = [x[1] for x in acceptances_sorted]
             acceptances = [x[2] for x in acceptances_sorted]
 
-            bigger = len([acc for acc in acceptances if acc > ranges[1]])
-            smaller = len([acc for acc in acceptances if acc < ranges[0]])
+            if ranges[0] and ranges[1]:
+                bigger = len([acc for acc in acceptances if acc > ranges[1]])
+                smaller = len([acc for acc in acceptances if acc < ranges[0]])
 
-            print "({}, {}) -> >{}:{}, <{}:{}".format(dataset.name, category.name,
-                ranges[1], bigger, ranges[0], smaller)
+                print "({}, {}) -> >{}:{}, <{}:{}".format(dataset.name, category.name,
+                    ranges[1], bigger, ranges[0], smaller)
 
-            postfix = "{}_{}".format(dataset.name, category.name)
-            # with open(create_file_dir(output["json_rate_%s" % postfix].path), "w") as f:
-                # json.dump(dict(zip(parameters, zip(rates, acceptances))), f, indent=4)
-            if self.npoints != -1:
-                parameters = parameters[:self.npoints]
-                rates = rates[:self.npoints]
-                acceptances = acceptances[:self.npoints]
+            if self.plot_vs_rate:
+                postfix = "{}_{}".format(dataset.name, category.name)
+                with open(create_file_dir( self.output()["json_rate_%s" % postfix].path), "w") as f:
+                    json.dump(dict(zip(parameters, zip(rates, acceptances))), f, indent=4)
+                if self.npoints != -1:
+                    parameters = parameters[:self.npoints]
+                    rates = rates[:self.npoints]
+                    acceptances = acceptances[:self.npoints]
 
-            self.plot(rates, acceptances, parameters,
-                self.rate_title, self.acceptance_title + " ({}, {})".format(
-                    dataset.process.label.latex, category.label.latex),
-                None, None, ranges[0], ranges[1], self.output()["plot_rate_%s" % postfix].path)
+                self.plot(rates, acceptances, parameters,
+                    self.rate_title, self.acceptance_title + " ({}, {})".format(
+                        dataset.process.label.latex, category.label.latex),
+                    None, None, ranges[0], ranges[1], self.output()["plot_rate_%s" % postfix].path)
 
         print "\n***********************************\n"
+        
+        if self.plot_vs_acceptance:
+            for i in range(len(self.datasets) - 1):
+                for j in range(i + 1, len(self.datasets)):
+                    (dataset_1, category_1, ranges_1) = (self.datasets[i],
+                        self.categories[i], self.acceptance_ranges[i])
+                    (dataset_2, category_2, ranges_2) = (self.datasets[j],
+                        self.categories[j], self.acceptance_ranges[j])
+                    postfix = "{}_{}__{}_{}".format(dataset_1.name, category_1.name,
+                        dataset_2.name, category_2.name)
 
-        for i in range(len(self.datasets) - 1):
-            for j in range(i + 1, len(self.datasets)):
-                (dataset_1, category_1, ranges_1) = (self.datasets[i],
-                    self.categories[i], self.acceptance_ranges[i])
-                (dataset_2, category_2, ranges_2) = (self.datasets[j],
-                    self.categories[j], self.acceptance_ranges[j])
-                postfix = "{}_{}_{}_{}".format(dataset_1.name, category_1.name,
-                    dataset_2.name, category_2.name)
+                    acceptances_sorted = [(x[0], x[2], y[2]) for x, y in zip(
+                        acceptances_to_plot[(dataset_1, category_1)],
+                        acceptances_to_plot[(dataset_2, category_2)])]
+                    acceptances_sorted.sort(key=lambda x:x[1] + x[2], reverse=True)
+                    acceptances_1 = [x[1] for x in acceptances_sorted]
+                    acceptances_2 = [x[2] for x in acceptances_sorted]
+                    parameters = [x[0] for x in acceptances_sorted]
 
-                acceptances_sorted = [(x[0], x[1], x[2], y[2]) for x, y in zip(
-                    acceptances_to_plot[(dataset_1, category_1)],
-                    acceptances_to_plot[(dataset_2, category_2)])]
-                acceptances_sorted.sort(key=lambda x:x[2] + x[3], reverse=True)
-                acceptances_1 = [x[2] for x in acceptances_sorted]
-                acceptances_2 = [x[3] for x in acceptances_sorted]
-                parameters = [x[0] for x in acceptances_sorted]
+                    # with open(create_file_dir(self.output()["json_%s" % postfix].path), "w") as f:
+                        # json.dump(dict(zip(parameters, zip(acceptances_1, acceptances_2))), f, indent=4)
+                    if self.npoints != -1:
+                        acceptances_1 = acceptances_1[:self.npoints]
+                        acceptances_2 = acceptances_2[:self.npoints]
+                        acceptances_parameters = parameters[:self.npoints]
 
-                with open(create_file_dir(self.output()["json_%s" % postfix].path), "w") as f:
-                    json.dump(dict(zip(parameters, zip(acceptances_1, acceptances_2))), f, indent=4)
-                if self.npoints != -1:
-                    acceptances_1 = acceptances_1[:self.npoints]
-                    acceptances_2 = acceptances_2[:self.npoints]
-                    acceptances_parameters = parameters[:self.npoints]
+                    self.plot(acceptances_1, acceptances_2, parameters,
+                        self.acceptance_title + " ({}, {})".format(
+                            dataset_1.process.label.latex, category_1.label.latex),
+                        self.acceptance_title + " ({}, {})".format(
+                            dataset_2.process.label.latex, category_2.label.latex),
+                        ranges_1[0], ranges_1[1], ranges_2[0], ranges_2[1],
+                        self.output()["plot_%s" % postfix].path)
 
-                self.plot(acceptances_1, acceptances_2, parameters,
-                    self.acceptance_title + " ({}, {})".format(
-                        dataset_1.process.label.latex, category_1.label.latex),
-                    self.acceptance_title + " ({}, {})".format(
-                        dataset_2.process.label.latex, category_2.label.latex),
-                    ranges_1[0], ranges_1[1], ranges_2[0], ranges_2[1],
-                    self.output()["plot_%s" % postfix].path)
+        headers = ["Parameters", "Rate"] 
+        acceptance_list = []
+        for i in range(len(acceptances_to_plot.values()[0])):
+            acceptance_line = []
+            acceptance_sum = 0
+            for id in range(len(self.datasets)):
+                dataset, category = (self.datasets[id], self.categories[id])
+                if i == 0:
+                    headers.append("%s, %s" % (dataset.name, category.name))
+                if id == 0:
+                    acceptance_line.append(acceptances_to_plot[(dataset, category)][i][0])
+                    acceptance_line.append(acceptances_to_plot[(dataset, category)][i][1])
+                acceptance_line.append(acceptances_to_plot[(dataset, category)][i][2])
+                acceptance_sum += acceptances_to_plot[(dataset, category)][i][2]
+            acceptance_line.append(acceptance_sum / len(self.datasets))
+            acceptance_list.append(acceptance_line)
+
+        headers.append("Mean")
+
+        acceptance_list.sort(key=lambda x: sum(elem for elem in x[2:]), reverse=True) 
+        table = tabulate.tabulate(acceptance_list[:self.npoints], headers=headers, floatfmt=".2f")
+        latex = tabulate.tabulate(acceptance_list[:self.npoints], headers=headers, floatfmt=".2f",
+            tablefmt="latex_raw")
+        latex = latex.replace("_", "\\_")
+        print table
+        with open(create_file_dir(self.output()["table_txt"].path), "w+") as f:
+            f.write(table)
+        with open(create_file_dir(self.output()["table_tex"].path), "w+") as f:
+            f.write(latex)
 
     @law.decorator.notify
     def run(self):
@@ -1278,6 +1457,14 @@ class PlotNanoAODStuff(DatasetTaskWithCategory):
     def output(self):
         output = {}
         output["tau_pt"] = self.local_target("tau_pt.pdf")
+        output["l1tau_pt"] = self.local_target("l1tau_pt.pdf")
+        output["genvistau_pt"] = self.local_target("genvistau_pt.pdf")
+        output["gentau_l1_dif"] = self.local_target("gentau_l1_dif.pdf")
+        output["gentau_l1_dif_2d"] = self.local_target("gentau_l1_dif_2D.pdf")
+        output["l1_gentau_dif_2d"] = self.local_target("l1_gentau_dif_2D.pdf")
+        output["recotau_l1_dif"] = self.local_target("recotau_l1_dif.pdf")
+        output["recotau_l1_dif_2d"] = self.local_target("recotau_l1_dif_2D.pdf")
+        output["l1_recotau_dif_2d"] = self.local_target("l1_recotau_dif_2D.pdf")
         output["jet_pt"] = self.local_target("jet_pt.pdf")
         output["jet_pt_er2p5"] = self.local_target("jet_pt_er2p5.pdf")
         output["jet_eta"] = self.local_target("jet_eta.pdf")
@@ -1295,13 +1482,13 @@ class PlotNanoAODStuff(DatasetTaskWithCategory):
                         "lead_sublead_goodl1tau_eta, "
                         "lead_sublead_goodl1tau_phi, "
                         "0.5)")
-        df = df.Define("lead_sublead_goodl1jet_eta",
-            "lead_sublead("
-                "L1Obj_pt[{0}],"
-                "L1Obj_eta[{0}],"
-                "L1Obj_phi[{0}],"
-                "L1Obj_pt[{0}]"
-            ")[1]".format(restriction))
+        # df = df.Define("lead_sublead_goodl1jet_eta",
+            # "lead_sublead("
+                # "L1Obj_pt[{0}],"
+                # "L1Obj_eta[{0}],"
+                # "L1Obj_phi[{0}],"
+                # "L1Obj_pt[{0}]"
+            # ")[1]".format(restriction))
         restriction = ("L1Obj_type == 0 "
                     "&& abs(L1Obj_eta) <= 2.5"
                     "&& maskDeltaR("
@@ -1317,7 +1504,57 @@ class PlotNanoAODStuff(DatasetTaskWithCategory):
                 "L1Obj_phi[{0}],"
                 "L1Obj_pt[{0}]"
             ")[0]".format(restriction))
+        
+        df = df.Define("lead_sublead_genvistau_pt", 
+            "lead_sublead("
+                "GenVisTau_pt,"
+                "GenVisTau_eta,"
+                "GenVisTau_phi,"
+                "GenVisTau_mass)[0]")
+        
+        df = df.Define("lead_sublead_genvistau_eta", 
+            "lead_sublead("
+                "GenVisTau_pt,"
+                "GenVisTau_eta,"
+                "GenVisTau_phi,"
+                "GenVisTau_mass)[1]")
+        
+        df = df.Define("lead_sublead_genvistau_phi", 
+            "lead_sublead("
+                "GenVisTau_pt,"
+                "GenVisTau_eta,"
+                "GenVisTau_phi,"
+                "GenVisTau_mass)[2]")
+        
         return df
+
+    def add_to_root(self, root):
+        root = AddTrigger.add_to_root(root)
+        root.gInterpreter.Declare("""
+            #include <TLorentzVector.h>
+            using Vfloat = const ROOT::RVec<float>&;      
+            ROOT::RVec<ROOT::RVec<float>> efficient_feat_dif(Vfloat feat1, Vfloat eta1, Vfloat phi1,
+                    Vfloat feat2, Vfloat eta2, Vfloat phi2, float th_dr){
+                ROOT::RVec<float> efficient_feats;
+                ROOT::RVec<float> efficient_feats_difs;
+                for (size_t i = 0; i < eta1.size(); i++){
+                    for (size_t j = 0; j < eta2.size(); j++){
+                        Double_t deta = eta1[i] - eta2[j];
+                        Double_t dphi = Phi_mpi_pi(phi1[i] - phi2[j]);
+                        Double_t dr = TMath::Sqrt(deta * deta + dphi * dphi);
+                        if (dr < th_dr) {
+                            efficient_feats.push_back(feat1[i]);
+                            efficient_feats_difs.push_back(feat1[i] - feat2[j]);
+                            break;
+                        }
+                    }
+                    efficient_feats.push_back(-1.);
+                    efficient_feats_difs.push_back(-999.);
+                }
+                return {efficient_feats, efficient_feats_difs};
+            }
+        """)
+        return root
 
     def run(self):
         import json
@@ -1337,32 +1574,159 @@ class PlotNanoAODStuff(DatasetTaskWithCategory):
 
         hmodel = ("jet_pt", "; pt [GeV]; Events / 4 GeV", 20, 20, 100)
 
+        leading_l1_tau_pt = df.Define("leading_l1_tau_pt",
+            "lead_sublead_goodl1tau_pt[0]").Histo1D(hmodel, "leading_l1_tau_pt")
+        subleading_l1_tau_pt = df.Define("subleading_l1_tau_pt",
+            "lead_sublead_goodl1tau_pt[1]").Histo1D(hmodel, "subleading_l1_tau_pt")
+
         leading_tau_pt = df.Define("leading_tau_pt",
-            "lead_sublead_goodl1tau_pt[0]").Histo1D(hmodel, "leading_tau_pt")
+            "lead_sublead_goodtau_pt[0]").Histo1D(hmodel, "leading_tau_pt")
         subleading_tau_pt = df.Define("subleading_tau_pt",
-            "lead_sublead_goodl1tau_pt[1]").Histo1D(hmodel, "subleading_tau_pt")
+            "lead_sublead_goodtau_pt[1]").Histo1D(hmodel, "subleading_tau_pt")
 
-        leading_pt = df.Define("leading_pt",
-            "lead_sublead_goodl1jet_pt[0]").Histo1D(hmodel, "leading_pt")
-        subleading_pt = df.Define("subleading_pt",
-            "lead_sublead_goodl1jet_pt[1]").Histo1D(hmodel, "subleading_pt")
+        leading_pt = df.Define("leading_l1_pt",
+            "lead_sublead_goodl1jet_pt[0]").Histo1D(hmodel, "leading_l1_pt")
+        subleading_pt = df.Define("subleading_l1_pt",
+            "lead_sublead_goodl1jet_pt[1]").Histo1D(hmodel, "subleading_l1_pt")
 
-        leading_pt_er2p5 = df.Define("leading_pt",
-            "lead_sublead_goodl1jet_pt_er2p5[0]").Histo1D(hmodel, "leading_pt")
-        subleading_pt_er2p5 = df.Define("subleading_pt",
-            "lead_sublead_goodl1jet_pt_er2p5[1]").Histo1D(hmodel, "subleading_pt")
+        leading_pt_er2p5 = df.Define("leading_l1_pt",
+            "lead_sublead_goodl1jet_pt_er2p5[0]").Histo1D(hmodel, "leading_l1_pt")
+        subleading_pt_er2p5 = df.Define("subleading_l1_pt",
+            "lead_sublead_goodl1jet_pt_er2p5[1]").Histo1D(hmodel, "subleading_l1_pt")
+
+        leading_genvistau_pt = df.Define("leading_genvistau_pt",
+            "lead_sublead_genvistau_pt[0]").Histo1D(hmodel, "leading_genvistau_pt")
+        subleading_genvistau_pt = df.Define("subleading_genvistau_pt",
+            "lead_sublead_genvistau_pt[1]").Histo1D(hmodel, "subleading_genvistau_pt")
+
 
         hmodel = ("jet_eta", "; #eta ; Events / 0.2", 50, -5, 5)
         leading_eta = df.Define("leading_eta", "lead_sublead_goodl1jet_eta[0]").Histo1D(hmodel, "leading_eta")
         subleading_eta = df.Define("subleading_eta", "lead_sublead_goodl1jet_eta[1]").Histo1D(hmodel, "subleading_eta")
         
         name_plots = [
+            ("l1tau_pt", (leading_l1_tau_pt, subleading_l1_tau_pt)),
             ("tau_pt", (leading_tau_pt, subleading_tau_pt)),
+            ("genvistau_pt", (leading_genvistau_pt, subleading_genvistau_pt)),
             ("jet_pt", (leading_pt, subleading_pt)),
             ("jet_pt_er2p5", (leading_pt_er2p5, subleading_pt_er2p5)),
             ("jet_eta", (leading_eta, subleading_eta))
         ]
+
+        hmodel = ("reco_pt_dif", "; (L1 #tau - Reco #tau) #Delta p_{t}[GeV]; Events / 1 GeV", 40, -20, 20)
+        recotau_l1_ptdif = df.Define("dif",
+            "efficient_feat_dif("
+                "lead_sublead_goodl1tau_pt,"
+                "lead_sublead_goodl1tau_eta,"
+                "lead_sublead_goodl1tau_phi,"
+                "lead_sublead_goodtau_pt,"
+                "lead_sublead_goodtau_eta,"
+                "lead_sublead_goodtau_phi,"
+                "0.1)[1]").Histo1D(hmodel, "dif")
+
+        hmodel = ("gen_pt_dif", "; (L1 #tau - Gen. Vis. #tau) #Delta p_{t}[GeV]; Events / 1 GeV", 40, -20, 20)
+        genvistau_l1_ptdif = df.Define("dif",
+            "efficient_feat_dif("
+                "lead_sublead_goodl1tau_pt,"
+                "lead_sublead_goodl1tau_eta,"
+                "lead_sublead_goodl1tau_phi,"
+                "GenVisTau_pt[abs(GenVisTau_eta)<2.1],"
+                "GenVisTau_eta[abs(GenVisTau_eta)<2.1],"
+                "GenVisTau_phi[abs(GenVisTau_eta)<2.1],"
+                "0.1)[1]").Histo1D(hmodel, "dif")
+
+        hmodel = ("l1_reco_pt_2d", "; p_{t}[GeV]; (L1 #tau - Reco #tau) #Delta p_{t}[GeV]", 20, 20, 40, 40, -20, 20)
+        l1_recotau_ptdif_2d = df.Define("dif",
+            "efficient_feat_dif("
+                "lead_sublead_goodl1tau_pt,"
+                "lead_sublead_goodl1tau_eta,"
+                "lead_sublead_goodl1tau_phi,"
+                "lead_sublead_goodtau_pt,"
+                "lead_sublead_goodtau_eta,"
+                "lead_sublead_goodtau_phi,"
+                "0.1)[1]").Define("pt",
+            "efficient_feat_dif("
+                "lead_sublead_goodl1tau_pt,"
+                "lead_sublead_goodl1tau_eta,"
+                "lead_sublead_goodl1tau_phi,"
+                "lead_sublead_goodtau_pt,"
+                "lead_sublead_goodtau_eta,"
+                "lead_sublead_goodtau_phi,"
+                "0.1)[0]").Histo2D(hmodel, "pt", "dif")
+
+        hmodel = ("reco_l1_pt_2d", "; p_{t}[GeV]; (Reco #tau - L1 #tau) #Delta p_{t}[GeV]", 20, 30, 50, 40, -20, 20)
+        recotau_l1_ptdif_2d = df.Define("dif",
+            "efficient_feat_dif("
+                "lead_sublead_goodtau_pt,"
+                "lead_sublead_goodtau_eta,"
+                "lead_sublead_goodtau_phi,"
+                "lead_sublead_goodl1tau_pt,"
+                "lead_sublead_goodl1tau_eta,"
+                "lead_sublead_goodl1tau_phi,"
+                "0.1)[1]").Define("pt",
+            "efficient_feat_dif("
+                "lead_sublead_goodtau_pt,"
+                "lead_sublead_goodtau_eta,"
+                "lead_sublead_goodtau_phi,"
+                "lead_sublead_goodl1tau_pt,"
+                "lead_sublead_goodl1tau_eta,"
+                "lead_sublead_goodl1tau_phi,"
+                "0.1)[0]").Histo2D(hmodel, "pt", "dif")
+
+        hmodel = ("l1_gen_pt_2d", "; p_{t}[GeV]; (L1 #tau - Gen. Vis. #tau) #Delta p_{t}[GeV]", 20, 20, 40, 40, -20, 20)
+        l1_genvistau_ptdif_2d = df.Define("pt",
+            "efficient_feat_dif("
+                "lead_sublead_goodl1tau_pt,"
+                "lead_sublead_goodl1tau_eta,"
+                "lead_sublead_goodl1tau_phi,"
+                "GenVisTau_pt[abs(GenVisTau_eta)<2.1],"
+                "GenVisTau_eta[abs(GenVisTau_eta)<2.1],"
+                "GenVisTau_phi[abs(GenVisTau_eta)<2.1],"
+                "0.1)[0]").Define("dif",
+            "efficient_feat_dif("
+                "lead_sublead_goodl1tau_pt,"
+                "lead_sublead_goodl1tau_eta,"
+                "lead_sublead_goodl1tau_phi,"
+                "GenVisTau_pt[abs(GenVisTau_eta)<2.1],"
+                "GenVisTau_eta[abs(GenVisTau_eta)<2.1],"
+                "GenVisTau_phi[abs(GenVisTau_eta)<2.1],"
+                "0.1)[1]").Histo2D(hmodel, "pt", "dif")
+                
+        hmodel = ("gen_l1_pt_2d", "; p_{t}[GeV]; (Gen. Vis. #tau - L1 #tau) #Delta p_{t}[GeV]", 20, 30, 50, 40, -20, 20)
+        genvistau_l1_ptdif_2d = df.Define("pt",
+            "efficient_feat_dif("
+                "GenVisTau_pt[abs(GenVisTau_eta)<2.1],"
+                "GenVisTau_eta[abs(GenVisTau_eta)<2.1],"
+                "GenVisTau_phi[abs(GenVisTau_eta)<2.1],"
+                "lead_sublead_goodl1tau_pt,"
+                "lead_sublead_goodl1tau_eta,"
+                "lead_sublead_goodl1tau_phi,"
+                "0.1)[0]").Define("dif",
+            "efficient_feat_dif("
+                "GenVisTau_pt[abs(GenVisTau_eta)<2.1],"
+                "GenVisTau_eta[abs(GenVisTau_eta)<2.1],"
+                "GenVisTau_phi[abs(GenVisTau_eta)<2.1],"
+                "lead_sublead_goodl1tau_pt,"
+                "lead_sublead_goodl1tau_eta,"
+                "lead_sublead_goodl1tau_phi,"
+                "0.1)[1]").Histo2D(hmodel, "pt", "dif")
         
+        histos1D = {
+            "recotau_l1_dif": recotau_l1_ptdif,
+            "gentau_l1_dif": genvistau_l1_ptdif,
+        }
+        
+        histos2D = {
+            "gentau_l1_dif_2d": genvistau_l1_ptdif_2d,
+            "l1_gentau_dif_2d": l1_genvistau_ptdif_2d,
+            "recotau_l1_dif_2d": recotau_l1_ptdif_2d,
+            "l1_recotau_dif_2d": l1_recotau_ptdif_2d,
+        }
+
+        texts = get_labels(upper_right="           {} Simulation (13 TeV)".format(
+            self.config.year),
+            inner_text=[self.config.datasets.get(self.dataset_name).process.label])
+
         for name, plots in name_plots:
             c = ROOT.TCanvas("", "", 800, 800)
             leg = ROOT.TLegend(0.7, 0.7, 0.9, 0.9)
@@ -1370,19 +1734,20 @@ class PlotNanoAODStuff(DatasetTaskWithCategory):
             subleading = plots[1].Clone()
             leading.SetLineColor(ROOT.kBlue)
             subleading.SetLineColor(ROOT.kRed)
-            leg.AddEntry(leading, "Leading L1 " + ("jet" if "jet" in name else "#tau"), "l")
-            leg.AddEntry(subleading, "Subleading L1 " + ("jet" if "jet" in name else "#tau"), "l")
+            
+            suffix = (("L1 " if "l1" in name.lower() else "")
+                + ("Gen " if "gen" in name.lower() else "")
+                + ("Reco " if ("l1" not in name.lower() and "gen" not in name.lower()) else "")
+                + ("jet" if "jet" in name else "#tau"))
+            
+            leg.AddEntry(leading, "Leading " + suffix, "l")
+            leg.AddEntry(subleading, "Subleading " + suffix, "l")
 
             if leading_pt.GetMaximum() < subleading_pt.GetMaximum():
-                subleading.Draw()
-                leading.Draw("same")
-            else:
-                leading.Draw()
-                subleading.Draw("same")
+                leading_pt.SetMaximum(1.1 * subleading_pt.GetMaximum())
+            leading.Draw()
+            subleading.Draw("same")
 
-            texts = get_labels(upper_right="           {} Simulation (13 TeV)".format(
-                    self.config.year),
-                inner_text=[self.config.datasets.get(self.dataset_name).process.label])
             for text in texts:
                 text.Draw("same")
 
@@ -1390,6 +1755,15 @@ class PlotNanoAODStuff(DatasetTaskWithCategory):
 
             c.SaveAs(create_file_dir(output[name].path))
             del c, leading, subleading
+
+        # genvistau vs l1 plots
+        c = ROOT.TCanvas("", "", 800, 800)
+        for name, histo in histos1D.items() + histos2D.items():
+            histo.GetYaxis().SetTitleOffset(1.5)
+            histo.Draw(("" if name in histos1D.keys() else "colz"))
+            for text in texts:
+                text.Draw("same")
+            c.SaveAs(create_file_dir(output[name].path))
 
 
 class PlotL1TStuff(PlotNanoAODStuff):
