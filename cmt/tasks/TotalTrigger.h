@@ -36,13 +36,49 @@ public :
    Float_t         L1Obj_phi[24];   //[nL1Obj]
    Int_t           L1Obj_type[24];   //[nL1Obj]
    Float_t         leading_l1tau_pt;
+   Float_t         leading_l1tau_eta;
+   Float_t         leading_l1tau_phi;
    Float_t         subleading_l1tau_pt;
+   Float_t         subleading_l1tau_eta;
+   Float_t         subleading_l1tau_phi;
+   
    Float_t         leading_l1jet_pt;
+   Float_t         leading_l1jet_eta;
+   Float_t         leading_l1jet_phi;
    Float_t         subleading_l1jet_pt;
+   Float_t         subleading_l1jet_eta;
+   Float_t         subleading_l1jet_phi;
+   
+   std::map<int, Float_t> leading_l1jet_pt_map;
+   std::map<int, Float_t> leading_l1jet_eta_map;
+   std::map<int, Float_t> leading_l1jet_phi_map;
+   std::map<int, Float_t> subleading_l1jet_pt_map;
+   std::map<int, Float_t> subleading_l1jet_eta_map;
+   std::map<int, Float_t> subleading_l1jet_phi_map;
+   
    Float_t         leading_tau_pt;
+   Float_t         leading_tau_eta;
+   Float_t         leading_tau_phi;
    Float_t         subleading_tau_pt;
+   Float_t         subleading_tau_eta;
+   Float_t         subleading_tau_phi;
+   
    Float_t         leading_jet_pt;
+   Float_t         leading_jet_eta;
+   Float_t         leading_jet_phi;
    Float_t         subleading_jet_pt;
+   Float_t         subleading_jet_eta;
+   Float_t         subleading_jet_phi;
+   
+   std::map<int, Float_t> leading_jet_pt_map;
+   std::map<int, Float_t> leading_jet_eta_map;
+   std::map<int, Float_t> leading_jet_phi_map;
+   std::map<int, Float_t> subleading_jet_pt_map;
+   std::map<int, Float_t> subleading_jet_eta_map;
+   std::map<int, Float_t> subleading_jet_phi_map;
+   
+   Float_t         weight;
+   Int_t           eventnumber;
 
    // List of branches
    TBranch        *b_nL1Obj;   //!
@@ -51,13 +87,191 @@ public :
    TBranch        *b_L1Obj_phi;   //!
    TBranch        *b_L1Obj_type;   //!
    TBranch        *b_leading_l1tau_pt;   //!
+   TBranch        *b_leading_l1tau_eta;   //!
+   TBranch        *b_leading_l1tau_phi;   //!
    TBranch        *b_subleading_l1tau_pt;   //!
+   TBranch        *b_subleading_l1tau_eta;   //!
+   TBranch        *b_subleading_l1tau_phi;   //!
    TBranch        *b_leading_l1jet_pt;   //!
+   TBranch        *b_leading_l1jet_eta;   //!
+   TBranch        *b_leading_l1jet_phi;   //!
    TBranch        *b_subleading_l1jet_pt;   //!
+   TBranch        *b_subleading_l1jet_eta;   //!
+   TBranch        *b_subleading_l1jet_phi;   //!
+   
+   TBranch        *b_leading_l1jet_pt_tau_pt_20;
+   TBranch        *b_leading_l1jet_eta_tau_pt_20;
+   TBranch        *b_leading_l1jet_phi_tau_pt_20;
+   TBranch        *b_subleading_l1jet_pt_tau_pt_20;
+   TBranch        *b_subleading_l1jet_eta_tau_pt_20;
+   TBranch        *b_subleading_l1jet_phi_tau_pt_20;
+   TBranch        *b_leading_l1jet_pt_tau_pt_21;
+   TBranch        *b_leading_l1jet_eta_tau_pt_21;
+   TBranch        *b_leading_l1jet_phi_tau_pt_21;
+   TBranch        *b_subleading_l1jet_pt_tau_pt_21;
+   TBranch        *b_subleading_l1jet_eta_tau_pt_21;
+   TBranch        *b_subleading_l1jet_phi_tau_pt_21;
+   TBranch        *b_leading_l1jet_pt_tau_pt_22;
+   TBranch        *b_leading_l1jet_eta_tau_pt_22;
+   TBranch        *b_leading_l1jet_phi_tau_pt_22;
+   TBranch        *b_subleading_l1jet_pt_tau_pt_22;
+   TBranch        *b_subleading_l1jet_eta_tau_pt_22;
+   TBranch        *b_subleading_l1jet_phi_tau_pt_22;
+   TBranch        *b_leading_l1jet_pt_tau_pt_23;
+   TBranch        *b_leading_l1jet_eta_tau_pt_23;
+   TBranch        *b_leading_l1jet_phi_tau_pt_23;
+   TBranch        *b_subleading_l1jet_pt_tau_pt_23;
+   TBranch        *b_subleading_l1jet_eta_tau_pt_23;
+   TBranch        *b_subleading_l1jet_phi_tau_pt_23;
+   TBranch        *b_leading_l1jet_pt_tau_pt_24;
+   TBranch        *b_leading_l1jet_eta_tau_pt_24;
+   TBranch        *b_leading_l1jet_phi_tau_pt_24;
+   TBranch        *b_subleading_l1jet_pt_tau_pt_24;
+   TBranch        *b_subleading_l1jet_eta_tau_pt_24;
+   TBranch        *b_subleading_l1jet_phi_tau_pt_24;
+   TBranch        *b_leading_l1jet_pt_tau_pt_25;
+   TBranch        *b_leading_l1jet_eta_tau_pt_25;
+   TBranch        *b_leading_l1jet_phi_tau_pt_25;
+   TBranch        *b_subleading_l1jet_pt_tau_pt_25;
+   TBranch        *b_subleading_l1jet_eta_tau_pt_25;
+   TBranch        *b_subleading_l1jet_phi_tau_pt_25;
+   TBranch        *b_leading_l1jet_pt_tau_pt_26;
+   TBranch        *b_leading_l1jet_eta_tau_pt_26;
+   TBranch        *b_leading_l1jet_phi_tau_pt_26;
+   TBranch        *b_subleading_l1jet_pt_tau_pt_26;
+   TBranch        *b_subleading_l1jet_eta_tau_pt_26;
+   TBranch        *b_subleading_l1jet_phi_tau_pt_26;
+   TBranch        *b_leading_l1jet_pt_tau_pt_27;
+   TBranch        *b_leading_l1jet_eta_tau_pt_27;
+   TBranch        *b_leading_l1jet_phi_tau_pt_27;
+   TBranch        *b_subleading_l1jet_pt_tau_pt_27;
+   TBranch        *b_subleading_l1jet_eta_tau_pt_27;
+   TBranch        *b_subleading_l1jet_phi_tau_pt_27;
+   TBranch        *b_leading_l1jet_pt_tau_pt_28;
+   TBranch        *b_leading_l1jet_eta_tau_pt_28;
+   TBranch        *b_leading_l1jet_phi_tau_pt_28;
+   TBranch        *b_subleading_l1jet_pt_tau_pt_28;
+   TBranch        *b_subleading_l1jet_eta_tau_pt_28;
+   TBranch        *b_subleading_l1jet_phi_tau_pt_28;
+   TBranch        *b_leading_l1jet_pt_tau_pt_29;
+   TBranch        *b_leading_l1jet_eta_tau_pt_29;
+   TBranch        *b_leading_l1jet_phi_tau_pt_29;
+   TBranch        *b_subleading_l1jet_pt_tau_pt_29;
+   TBranch        *b_subleading_l1jet_eta_tau_pt_29;
+   TBranch        *b_subleading_l1jet_phi_tau_pt_29;
+   TBranch        *b_leading_l1jet_pt_tau_pt_30;
+   TBranch        *b_leading_l1jet_eta_tau_pt_30;
+   TBranch        *b_leading_l1jet_phi_tau_pt_30;
+   TBranch        *b_subleading_l1jet_pt_tau_pt_30;
+   TBranch        *b_subleading_l1jet_eta_tau_pt_30;
+   TBranch        *b_subleading_l1jet_phi_tau_pt_30;
+   TBranch        *b_leading_l1jet_pt_tau_pt_31;
+   TBranch        *b_leading_l1jet_eta_tau_pt_31;
+   TBranch        *b_leading_l1jet_phi_tau_pt_31;
+   TBranch        *b_subleading_l1jet_pt_tau_pt_31;
+   TBranch        *b_subleading_l1jet_eta_tau_pt_31;
+   TBranch        *b_subleading_l1jet_phi_tau_pt_31;
+   TBranch        *b_leading_l1jet_pt_tau_pt_32;
+   TBranch        *b_leading_l1jet_eta_tau_pt_32;
+   TBranch        *b_leading_l1jet_phi_tau_pt_32;
+   TBranch        *b_subleading_l1jet_pt_tau_pt_32;
+   TBranch        *b_subleading_l1jet_eta_tau_pt_32;
+   TBranch        *b_subleading_l1jet_phi_tau_pt_32;
+   
    TBranch        *b_leading_tau_pt;   //!
+   TBranch        *b_leading_tau_eta;   //!
+   TBranch        *b_leading_tau_phi;   //!
    TBranch        *b_subleading_tau_pt;   //!
+   TBranch        *b_subleading_tau_eta;   //!
+   TBranch        *b_subleading_tau_phi;   //!
+   
    TBranch        *b_leading_jet_pt;   //!
+   TBranch        *b_leading_jet_eta;   //!
+   TBranch        *b_leading_jet_phi;   //!
    TBranch        *b_subleading_jet_pt;   //!
+   TBranch        *b_subleading_jet_eta;   //!
+   TBranch        *b_subleading_jet_phi;   //!
+   TBranch        *b_leading_jet_pt_tau_pt_20;
+   TBranch        *b_leading_jet_eta_tau_pt_20;
+   TBranch        *b_leading_jet_phi_tau_pt_20;
+   TBranch        *b_subleading_jet_pt_tau_pt_20;
+   TBranch        *b_subleading_jet_eta_tau_pt_20;
+   TBranch        *b_subleading_jet_phi_tau_pt_20;
+   TBranch        *b_leading_jet_pt_tau_pt_21;
+   TBranch        *b_leading_jet_eta_tau_pt_21;
+   TBranch        *b_leading_jet_phi_tau_pt_21;
+   TBranch        *b_subleading_jet_pt_tau_pt_21;
+   TBranch        *b_subleading_jet_eta_tau_pt_21;
+   TBranch        *b_subleading_jet_phi_tau_pt_21;
+   TBranch        *b_leading_jet_pt_tau_pt_22;
+   TBranch        *b_leading_jet_eta_tau_pt_22;
+   TBranch        *b_leading_jet_phi_tau_pt_22;
+   TBranch        *b_subleading_jet_pt_tau_pt_22;
+   TBranch        *b_subleading_jet_eta_tau_pt_22;
+   TBranch        *b_subleading_jet_phi_tau_pt_22;
+   TBranch        *b_leading_jet_pt_tau_pt_23;
+   TBranch        *b_leading_jet_eta_tau_pt_23;
+   TBranch        *b_leading_jet_phi_tau_pt_23;
+   TBranch        *b_subleading_jet_pt_tau_pt_23;
+   TBranch        *b_subleading_jet_eta_tau_pt_23;
+   TBranch        *b_subleading_jet_phi_tau_pt_23;
+   TBranch        *b_leading_jet_pt_tau_pt_24;
+   TBranch        *b_leading_jet_eta_tau_pt_24;
+   TBranch        *b_leading_jet_phi_tau_pt_24;
+   TBranch        *b_subleading_jet_pt_tau_pt_24;
+   TBranch        *b_subleading_jet_eta_tau_pt_24;
+   TBranch        *b_subleading_jet_phi_tau_pt_24;
+   TBranch        *b_leading_jet_pt_tau_pt_25;
+   TBranch        *b_leading_jet_eta_tau_pt_25;
+   TBranch        *b_leading_jet_phi_tau_pt_25;
+   TBranch        *b_subleading_jet_pt_tau_pt_25;
+   TBranch        *b_subleading_jet_eta_tau_pt_25;
+   TBranch        *b_subleading_jet_phi_tau_pt_25;
+   TBranch        *b_leading_jet_pt_tau_pt_26;
+   TBranch        *b_leading_jet_eta_tau_pt_26;
+   TBranch        *b_leading_jet_phi_tau_pt_26;
+   TBranch        *b_subleading_jet_pt_tau_pt_26;
+   TBranch        *b_subleading_jet_eta_tau_pt_26;
+   TBranch        *b_subleading_jet_phi_tau_pt_26;
+   TBranch        *b_leading_jet_pt_tau_pt_27;
+   TBranch        *b_leading_jet_eta_tau_pt_27;
+   TBranch        *b_leading_jet_phi_tau_pt_27;
+   TBranch        *b_subleading_jet_pt_tau_pt_27;
+   TBranch        *b_subleading_jet_eta_tau_pt_27;
+   TBranch        *b_subleading_jet_phi_tau_pt_27;
+   TBranch        *b_leading_jet_pt_tau_pt_28;
+   TBranch        *b_leading_jet_eta_tau_pt_28;
+   TBranch        *b_leading_jet_phi_tau_pt_28;
+   TBranch        *b_subleading_jet_pt_tau_pt_28;
+   TBranch        *b_subleading_jet_eta_tau_pt_28;
+   TBranch        *b_subleading_jet_phi_tau_pt_28;
+   TBranch        *b_leading_jet_pt_tau_pt_29;
+   TBranch        *b_leading_jet_eta_tau_pt_29;
+   TBranch        *b_leading_jet_phi_tau_pt_29;
+   TBranch        *b_subleading_jet_pt_tau_pt_29;
+   TBranch        *b_subleading_jet_eta_tau_pt_29;
+   TBranch        *b_subleading_jet_phi_tau_pt_29;
+   TBranch        *b_leading_jet_pt_tau_pt_30;
+   TBranch        *b_leading_jet_eta_tau_pt_30;
+   TBranch        *b_leading_jet_phi_tau_pt_30;
+   TBranch        *b_subleading_jet_pt_tau_pt_30;
+   TBranch        *b_subleading_jet_eta_tau_pt_30;
+   TBranch        *b_subleading_jet_phi_tau_pt_30;
+   TBranch        *b_leading_jet_pt_tau_pt_31;
+   TBranch        *b_leading_jet_eta_tau_pt_31;
+   TBranch        *b_leading_jet_phi_tau_pt_31;
+   TBranch        *b_subleading_jet_pt_tau_pt_31;
+   TBranch        *b_subleading_jet_eta_tau_pt_31;
+   TBranch        *b_subleading_jet_phi_tau_pt_31;
+   TBranch        *b_leading_jet_pt_tau_pt_32;
+   TBranch        *b_leading_jet_eta_tau_pt_32;
+   TBranch        *b_leading_jet_phi_tau_pt_32;
+   TBranch        *b_subleading_jet_pt_tau_pt_32;
+   TBranch        *b_subleading_jet_eta_tau_pt_32;
+   TBranch        *b_subleading_jet_phi_tau_pt_32;
+   
+   TBranch        *b_weight;   //!
+   TBranch        *b_eventnumber;   //!
 
    TotalTrigger(
      const TString & inSample, const TString & outName, const TString & treename,
@@ -74,9 +288,17 @@ public :
    virtual void     TotalLoop();
    virtual void     AsymmLoop();
    virtual void     AsymmDiJetLoop();
+   virtual void     AsymmVBFLoop();
+   virtual void     AsymmVBFDiJetLoop();
+   virtual void     AsymmKetiLoop();
+   virtual void     AsymmKetiDiJetLoop();
    virtual void     RateTotalLoop();
    virtual void     RateAsymmLoop();
    virtual void     RateAsymmDiJetLoop();
+   virtual void     RateAsymmVBFLoop();
+   virtual void     RateAsymmVBFDiJetLoop();
+   virtual void     RateAsymmKetiLoop();
+   virtual void     RateAsymmKetiDiJetLoop();
    virtual Bool_t   Notify();
    virtual void     Show(Long64_t entry = -1);
 };
@@ -154,23 +376,380 @@ void TotalTrigger::Init(TTree *tree)
    fCurrent = -1;
    fChain->SetMakeClass(1);
 
-   fChain->SetBranchAddress("nL1Obj", &nL1Obj, &b_nL1Obj);
-   fChain->SetBranchAddress("L1Obj_pt", L1Obj_pt, &b_L1Obj_pt);
-   fChain->SetBranchAddress("L1Obj_eta", L1Obj_eta, &b_L1Obj_eta);
-   fChain->SetBranchAddress("L1Obj_phi", L1Obj_phi, &b_L1Obj_phi);
-   fChain->SetBranchAddress("L1Obj_type", L1Obj_type, &b_L1Obj_type);
+   // if (fChain->GetListOfBranches()->FindObject("nL1Obj"))
+     // fChain->SetBranchAddress("nL1Obj", &nL1Obj, &b_nL1Obj);
+   // if (fChain->GetListOfBranches()->FindObject("L1Obj_pt"))
+     // fChain->SetBranchAddress("L1Obj_pt", L1Obj_pt, &b_L1Obj_pt);
+   // if (fChain->GetListOfBranches()->FindObject("L1Obj_eta"))
+     // fChain->SetBranchAddress("L1Obj_eta", L1Obj_eta, &b_L1Obj_eta);
+   // if (fChain->GetListOfBranches()->FindObject("L1Obj_phi"))
+     // fChain->SetBranchAddress("L1Obj_phi", L1Obj_phi, &b_L1Obj_phi);
+   // if (fChain->GetListOfBranches()->FindObject("L1Obj_type"))
+     // fChain->SetBranchAddress("L1Obj_type", L1Obj_type, &b_L1Obj_type);
    fChain->SetBranchAddress("leading_l1tau_pt", &leading_l1tau_pt, &b_leading_l1tau_pt);
+   // fChain->SetBranchAddress("leading_l1tau_eta", &leading_l1tau_eta, &b_leading_l1tau_eta);
+   // fChain->SetBranchAddress("leading_l1tau_phi", &leading_l1tau_phi, &b_leading_l1tau_phi);
    fChain->SetBranchAddress("subleading_l1tau_pt", &subleading_l1tau_pt, &b_subleading_l1tau_pt);
-   fChain->SetBranchAddress("leading_l1jet_pt", &leading_l1jet_pt, &b_leading_l1jet_pt);
-   fChain->SetBranchAddress("subleading_l1jet_pt", &subleading_l1jet_pt, &b_subleading_l1jet_pt);
+   // fChain->SetBranchAddress("subleading_l1tau_eta", &subleading_l1tau_eta, &b_subleading_l1tau_eta);
+   // fChain->SetBranchAddress("subleading_l1tau_phi", &subleading_l1tau_phi, &b_subleading_l1tau_phi);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_pt"))
+      fChain->SetBranchAddress("leading_l1jet_pt", &leading_l1jet_pt, &b_leading_l1jet_pt);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_eta"))
+      fChain->SetBranchAddress("leading_l1jet_eta", &leading_l1jet_eta, &b_leading_l1jet_eta);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_phi"))
+      fChain->SetBranchAddress("leading_l1jet_phi", &leading_l1jet_phi, &b_leading_l1jet_phi);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_pt"))
+      fChain->SetBranchAddress("subleading_l1jet_pt", &subleading_l1jet_pt, &b_subleading_l1jet_pt);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_eta"))
+      fChain->SetBranchAddress("subleading_l1jet_eta", &subleading_l1jet_eta, &b_subleading_l1jet_eta);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_phi"))
+      fChain->SetBranchAddress("subleading_l1jet_phi", &subleading_l1jet_phi, &b_subleading_l1jet_phi);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_pt_tau_pt_20"))
+      fChain->SetBranchAddress("leading_l1jet_pt_tau_pt_20", &leading_l1jet_pt_map[20], &b_leading_l1jet_pt_tau_pt_20);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_eta_tau_pt_20"))
+      fChain->SetBranchAddress("leading_l1jet_eta_tau_pt_20", &leading_l1jet_eta_map[20], &b_leading_l1jet_eta_tau_pt_20);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_phi_tau_pt_20"))
+      fChain->SetBranchAddress("leading_l1jet_phi_tau_pt_20", &leading_l1jet_phi_map[20], &b_leading_l1jet_phi_tau_pt_20);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_pt_tau_pt_20"))
+      fChain->SetBranchAddress("subleading_l1jet_pt_tau_pt_20", &subleading_l1jet_pt_map[20], &b_subleading_l1jet_pt_tau_pt_20);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_eta_tau_pt_20"))
+      fChain->SetBranchAddress("subleading_l1jet_eta_tau_pt_20", &subleading_l1jet_eta_map[20], &b_subleading_l1jet_eta_tau_pt_20);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_phi_tau_pt_20"))
+      fChain->SetBranchAddress("subleading_l1jet_phi_tau_pt_20", &subleading_l1jet_phi_map[20], &b_subleading_l1jet_phi_tau_pt_20);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_pt_tau_pt_21"))
+      fChain->SetBranchAddress("leading_l1jet_pt_tau_pt_21", &leading_l1jet_pt_map[21], &b_leading_l1jet_pt_tau_pt_21);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_eta_tau_pt_21"))
+      fChain->SetBranchAddress("leading_l1jet_eta_tau_pt_21", &leading_l1jet_eta_map[21], &b_leading_l1jet_eta_tau_pt_21);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_phi_tau_pt_21"))
+      fChain->SetBranchAddress("leading_l1jet_phi_tau_pt_21", &leading_l1jet_phi_map[21], &b_leading_l1jet_phi_tau_pt_21);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_pt_tau_pt_21"))
+      fChain->SetBranchAddress("subleading_l1jet_pt_tau_pt_21", &subleading_l1jet_pt_map[21], &b_subleading_l1jet_pt_tau_pt_21);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_eta_tau_pt_21"))
+      fChain->SetBranchAddress("subleading_l1jet_eta_tau_pt_21", &subleading_l1jet_eta_map[21], &b_subleading_l1jet_eta_tau_pt_21);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_phi_tau_pt_21"))
+      fChain->SetBranchAddress("subleading_l1jet_phi_tau_pt_21", &subleading_l1jet_phi_map[21], &b_subleading_l1jet_phi_tau_pt_21);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_pt_tau_pt_22"))
+      fChain->SetBranchAddress("leading_l1jet_pt_tau_pt_22", &leading_l1jet_pt_map[22], &b_leading_l1jet_pt_tau_pt_22);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_eta_tau_pt_22"))
+      fChain->SetBranchAddress("leading_l1jet_eta_tau_pt_22", &leading_l1jet_eta_map[22], &b_leading_l1jet_eta_tau_pt_22);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_phi_tau_pt_22"))
+      fChain->SetBranchAddress("leading_l1jet_phi_tau_pt_22", &leading_l1jet_phi_map[22], &b_leading_l1jet_phi_tau_pt_22);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_pt_tau_pt_22"))
+      fChain->SetBranchAddress("subleading_l1jet_pt_tau_pt_22", &subleading_l1jet_pt_map[22], &b_subleading_l1jet_pt_tau_pt_22);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_eta_tau_pt_22"))
+      fChain->SetBranchAddress("subleading_l1jet_eta_tau_pt_22", &subleading_l1jet_eta_map[22], &b_subleading_l1jet_eta_tau_pt_22);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_phi_tau_pt_22"))
+      fChain->SetBranchAddress("subleading_l1jet_phi_tau_pt_22", &subleading_l1jet_phi_map[22], &b_subleading_l1jet_phi_tau_pt_22);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_pt_tau_pt_23"))
+      fChain->SetBranchAddress("leading_l1jet_pt_tau_pt_23", &leading_l1jet_pt_map[23], &b_leading_l1jet_pt_tau_pt_23);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_eta_tau_pt_23"))
+      fChain->SetBranchAddress("leading_l1jet_eta_tau_pt_23", &leading_l1jet_eta_map[23], &b_leading_l1jet_eta_tau_pt_23);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_phi_tau_pt_23"))
+      fChain->SetBranchAddress("leading_l1jet_phi_tau_pt_23", &leading_l1jet_phi_map[23], &b_leading_l1jet_phi_tau_pt_23);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_pt_tau_pt_23"))
+      fChain->SetBranchAddress("subleading_l1jet_pt_tau_pt_23", &subleading_l1jet_pt_map[23], &b_subleading_l1jet_pt_tau_pt_23);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_eta_tau_pt_23"))
+      fChain->SetBranchAddress("subleading_l1jet_eta_tau_pt_23", &subleading_l1jet_eta_map[23], &b_subleading_l1jet_eta_tau_pt_23);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_phi_tau_pt_23"))
+      fChain->SetBranchAddress("subleading_l1jet_phi_tau_pt_23", &subleading_l1jet_phi_map[23], &b_subleading_l1jet_phi_tau_pt_23);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_pt_tau_pt_24"))
+      fChain->SetBranchAddress("leading_l1jet_pt_tau_pt_24", &leading_l1jet_pt_map[24], &b_leading_l1jet_pt_tau_pt_24);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_eta_tau_pt_24"))
+      fChain->SetBranchAddress("leading_l1jet_eta_tau_pt_24", &leading_l1jet_eta_map[24], &b_leading_l1jet_eta_tau_pt_24);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_phi_tau_pt_24"))
+      fChain->SetBranchAddress("leading_l1jet_phi_tau_pt_24", &leading_l1jet_phi_map[24], &b_leading_l1jet_phi_tau_pt_24);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_pt_tau_pt_24"))
+      fChain->SetBranchAddress("subleading_l1jet_pt_tau_pt_24", &subleading_l1jet_pt_map[24], &b_subleading_l1jet_pt_tau_pt_24);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_eta_tau_pt_24"))
+      fChain->SetBranchAddress("subleading_l1jet_eta_tau_pt_24", &subleading_l1jet_eta_map[24], &b_subleading_l1jet_eta_tau_pt_24);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_phi_tau_pt_24"))
+      fChain->SetBranchAddress("subleading_l1jet_phi_tau_pt_24", &subleading_l1jet_phi_map[24], &b_subleading_l1jet_phi_tau_pt_24);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_pt_tau_pt_25"))
+      fChain->SetBranchAddress("leading_l1jet_pt_tau_pt_25", &leading_l1jet_pt_map[25], &b_leading_l1jet_pt_tau_pt_25);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_eta_tau_pt_25"))
+      fChain->SetBranchAddress("leading_l1jet_eta_tau_pt_25", &leading_l1jet_eta_map[25], &b_leading_l1jet_eta_tau_pt_25);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_phi_tau_pt_25"))
+      fChain->SetBranchAddress("leading_l1jet_phi_tau_pt_25", &leading_l1jet_phi_map[25], &b_leading_l1jet_phi_tau_pt_25);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_pt_tau_pt_25"))
+      fChain->SetBranchAddress("subleading_l1jet_pt_tau_pt_25", &subleading_l1jet_pt_map[25], &b_subleading_l1jet_pt_tau_pt_25);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_eta_tau_pt_25"))
+      fChain->SetBranchAddress("subleading_l1jet_eta_tau_pt_25", &subleading_l1jet_eta_map[25], &b_subleading_l1jet_eta_tau_pt_25);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_phi_tau_pt_25"))
+      fChain->SetBranchAddress("subleading_l1jet_phi_tau_pt_25", &subleading_l1jet_phi_map[25], &b_subleading_l1jet_phi_tau_pt_25);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_pt_tau_pt_26"))
+      fChain->SetBranchAddress("leading_l1jet_pt_tau_pt_26", &leading_l1jet_pt_map[26], &b_leading_l1jet_pt_tau_pt_26);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_eta_tau_pt_26"))
+      fChain->SetBranchAddress("leading_l1jet_eta_tau_pt_26", &leading_l1jet_eta_map[26], &b_leading_l1jet_eta_tau_pt_26);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_phi_tau_pt_26"))
+      fChain->SetBranchAddress("leading_l1jet_phi_tau_pt_26", &leading_l1jet_phi_map[26], &b_leading_l1jet_phi_tau_pt_26);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_pt_tau_pt_26"))
+      fChain->SetBranchAddress("subleading_l1jet_pt_tau_pt_26", &subleading_l1jet_pt_map[26], &b_subleading_l1jet_pt_tau_pt_26);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_eta_tau_pt_26"))
+      fChain->SetBranchAddress("subleading_l1jet_eta_tau_pt_26", &subleading_l1jet_eta_map[26], &b_subleading_l1jet_eta_tau_pt_26);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_phi_tau_pt_26"))
+      fChain->SetBranchAddress("subleading_l1jet_phi_tau_pt_26", &subleading_l1jet_phi_map[26], &b_subleading_l1jet_phi_tau_pt_26);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_pt_tau_pt_27"))
+      fChain->SetBranchAddress("leading_l1jet_pt_tau_pt_27", &leading_l1jet_pt_map[27], &b_leading_l1jet_pt_tau_pt_27);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_eta_tau_pt_27"))
+      fChain->SetBranchAddress("leading_l1jet_eta_tau_pt_27", &leading_l1jet_eta_map[27], &b_leading_l1jet_eta_tau_pt_27);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_phi_tau_pt_27"))
+      fChain->SetBranchAddress("leading_l1jet_phi_tau_pt_27", &leading_l1jet_phi_map[27], &b_leading_l1jet_phi_tau_pt_27);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_pt_tau_pt_27"))
+      fChain->SetBranchAddress("subleading_l1jet_pt_tau_pt_27", &subleading_l1jet_pt_map[27], &b_subleading_l1jet_pt_tau_pt_27);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_eta_tau_pt_27"))
+      fChain->SetBranchAddress("subleading_l1jet_eta_tau_pt_27", &subleading_l1jet_eta_map[27], &b_subleading_l1jet_eta_tau_pt_27);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_phi_tau_pt_27"))
+      fChain->SetBranchAddress("subleading_l1jet_phi_tau_pt_27", &subleading_l1jet_phi_map[27], &b_subleading_l1jet_phi_tau_pt_27);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_pt_tau_pt_28"))
+      fChain->SetBranchAddress("leading_l1jet_pt_tau_pt_28", &leading_l1jet_pt_map[28], &b_leading_l1jet_pt_tau_pt_28);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_eta_tau_pt_28"))
+      fChain->SetBranchAddress("leading_l1jet_eta_tau_pt_28", &leading_l1jet_eta_map[28], &b_leading_l1jet_eta_tau_pt_28);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_phi_tau_pt_28"))
+      fChain->SetBranchAddress("leading_l1jet_phi_tau_pt_28", &leading_l1jet_phi_map[28], &b_leading_l1jet_phi_tau_pt_28);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_pt_tau_pt_28"))
+      fChain->SetBranchAddress("subleading_l1jet_pt_tau_pt_28", &subleading_l1jet_pt_map[28], &b_subleading_l1jet_pt_tau_pt_28);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_eta_tau_pt_28"))
+      fChain->SetBranchAddress("subleading_l1jet_eta_tau_pt_28", &subleading_l1jet_eta_map[28], &b_subleading_l1jet_eta_tau_pt_28);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_phi_tau_pt_28"))
+      fChain->SetBranchAddress("subleading_l1jet_phi_tau_pt_28", &subleading_l1jet_phi_map[28], &b_subleading_l1jet_phi_tau_pt_28);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_pt_tau_pt_29"))
+      fChain->SetBranchAddress("leading_l1jet_pt_tau_pt_29", &leading_l1jet_pt_map[29], &b_leading_l1jet_pt_tau_pt_29);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_eta_tau_pt_29"))
+      fChain->SetBranchAddress("leading_l1jet_eta_tau_pt_29", &leading_l1jet_eta_map[29], &b_leading_l1jet_eta_tau_pt_29);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_phi_tau_pt_29"))
+      fChain->SetBranchAddress("leading_l1jet_phi_tau_pt_29", &leading_l1jet_phi_map[29], &b_leading_l1jet_phi_tau_pt_29);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_pt_tau_pt_29"))
+      fChain->SetBranchAddress("subleading_l1jet_pt_tau_pt_29", &subleading_l1jet_pt_map[29], &b_subleading_l1jet_pt_tau_pt_29);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_eta_tau_pt_29"))
+      fChain->SetBranchAddress("subleading_l1jet_eta_tau_pt_29", &subleading_l1jet_eta_map[29], &b_subleading_l1jet_eta_tau_pt_29);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_phi_tau_pt_29"))
+      fChain->SetBranchAddress("subleading_l1jet_phi_tau_pt_29", &subleading_l1jet_phi_map[29], &b_subleading_l1jet_phi_tau_pt_29);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_pt_tau_pt_30"))
+      fChain->SetBranchAddress("leading_l1jet_pt_tau_pt_30", &leading_l1jet_pt_map[30], &b_leading_l1jet_pt_tau_pt_30);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_eta_tau_pt_30"))
+      fChain->SetBranchAddress("leading_l1jet_eta_tau_pt_30", &leading_l1jet_eta_map[30], &b_leading_l1jet_eta_tau_pt_30);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_phi_tau_pt_30"))
+      fChain->SetBranchAddress("leading_l1jet_phi_tau_pt_30", &leading_l1jet_phi_map[30], &b_leading_l1jet_phi_tau_pt_30);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_pt_tau_pt_30"))
+      fChain->SetBranchAddress("subleading_l1jet_pt_tau_pt_30", &subleading_l1jet_pt_map[30], &b_subleading_l1jet_pt_tau_pt_30);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_eta_tau_pt_30"))
+      fChain->SetBranchAddress("subleading_l1jet_eta_tau_pt_30", &subleading_l1jet_eta_map[30], &b_subleading_l1jet_eta_tau_pt_30);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_phi_tau_pt_30"))
+      fChain->SetBranchAddress("subleading_l1jet_phi_tau_pt_30", &subleading_l1jet_phi_map[30], &b_subleading_l1jet_phi_tau_pt_30);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_pt_tau_pt_31"))
+      fChain->SetBranchAddress("leading_l1jet_pt_tau_pt_31", &leading_l1jet_pt_map[31], &b_leading_l1jet_pt_tau_pt_31);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_eta_tau_pt_31"))
+      fChain->SetBranchAddress("leading_l1jet_eta_tau_pt_31", &leading_l1jet_eta_map[31], &b_leading_l1jet_eta_tau_pt_31);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_phi_tau_pt_31"))
+      fChain->SetBranchAddress("leading_l1jet_phi_tau_pt_31", &leading_l1jet_phi_map[31], &b_leading_l1jet_phi_tau_pt_31);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_pt_tau_pt_31"))
+      fChain->SetBranchAddress("subleading_l1jet_pt_tau_pt_31", &subleading_l1jet_pt_map[31], &b_subleading_l1jet_pt_tau_pt_31);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_eta_tau_pt_31"))
+      fChain->SetBranchAddress("subleading_l1jet_eta_tau_pt_31", &subleading_l1jet_eta_map[31], &b_subleading_l1jet_eta_tau_pt_31);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_phi_tau_pt_31"))
+      fChain->SetBranchAddress("subleading_l1jet_phi_tau_pt_31", &subleading_l1jet_phi_map[31], &b_subleading_l1jet_phi_tau_pt_31);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_pt_tau_pt_32"))
+      fChain->SetBranchAddress("leading_l1jet_pt_tau_pt_32", &leading_l1jet_pt_map[32], &b_leading_l1jet_pt_tau_pt_32);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_eta_tau_pt_32"))
+      fChain->SetBranchAddress("leading_l1jet_eta_tau_pt_32", &leading_l1jet_eta_map[32], &b_leading_l1jet_eta_tau_pt_32);
+   if (fChain->GetListOfBranches()->FindObject("leading_l1jet_phi_tau_pt_32"))
+      fChain->SetBranchAddress("leading_l1jet_phi_tau_pt_32", &leading_l1jet_phi_map[32], &b_leading_l1jet_phi_tau_pt_32);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_pt_tau_pt_32"))
+      fChain->SetBranchAddress("subleading_l1jet_pt_tau_pt_32", &subleading_l1jet_pt_map[32], &b_subleading_l1jet_pt_tau_pt_32);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_eta_tau_pt_32"))
+      fChain->SetBranchAddress("subleading_l1jet_eta_tau_pt_32", &subleading_l1jet_eta_map[32], &b_subleading_l1jet_eta_tau_pt_32);
+   if (fChain->GetListOfBranches()->FindObject("subleading_l1jet_phi_tau_pt_32"))
+      fChain->SetBranchAddress("subleading_l1jet_phi_tau_pt_32", &subleading_l1jet_phi_map[32], &b_subleading_l1jet_phi_tau_pt_32);
+
+
+
+   // offline variables, only present in Skim (not L1Skim)
    if (fChain->GetListOfBranches()->FindObject("leading_tau_pt"))
      fChain->SetBranchAddress("leading_tau_pt", &leading_tau_pt, &b_leading_tau_pt);
+   // if (fChain->GetListOfBranches()->FindObject("leading_tau_eta"))
+     // fChain->SetBranchAddress("leading_tau_eta", &leading_tau_eta, &b_leading_tau_eta);
+   // if (fChain->GetListOfBranches()->FindObject("leading_tau_phi"))
+     // fChain->SetBranchAddress("leading_tau_phi", &leading_tau_phi, &b_leading_tau_phi);
    if (fChain->GetListOfBranches()->FindObject("subleading_tau_pt"))
      fChain->SetBranchAddress("subleading_tau_pt", &subleading_tau_pt, &b_subleading_tau_pt);
+   // if (fChain->GetListOfBranches()->FindObject("subleading_tau_eta"))
+     // fChain->SetBranchAddress("subleading_tau_eta", &subleading_tau_eta, &b_subleading_tau_eta);
+   // if (fChain->GetListOfBranches()->FindObject("subleading_tau_phi"))
+     // fChain->SetBranchAddress("subleading_tau_phi", &subleading_tau_phi, &b_subleading_tau_phi);
    if (fChain->GetListOfBranches()->FindObject("leading_jet_pt"))
      fChain->SetBranchAddress("leading_jet_pt", &leading_jet_pt, &b_leading_jet_pt);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_eta"))
+     fChain->SetBranchAddress("leading_jet_eta", &leading_jet_eta, &b_leading_jet_eta);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_phi"))
+     fChain->SetBranchAddress("leading_jet_phi", &leading_jet_phi, &b_leading_jet_phi);
    if (fChain->GetListOfBranches()->FindObject("subleading_jet_pt"))
      fChain->SetBranchAddress("subleading_jet_pt", &subleading_jet_pt, &b_subleading_jet_pt);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_eta"))
+     fChain->SetBranchAddress("subleading_jet_eta", &subleading_jet_eta, &b_subleading_jet_eta);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_phi"))
+     fChain->SetBranchAddress("subleading_jet_phi", &subleading_jet_phi, &b_subleading_jet_phi);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_pt_tau_pt_20"))
+      fChain->SetBranchAddress("leading_jet_pt_tau_pt_20", &leading_jet_pt_map[20], &b_leading_jet_pt_tau_pt_20);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_eta_tau_pt_20"))
+      fChain->SetBranchAddress("leading_jet_eta_tau_pt_20", &leading_jet_eta_map[20], &b_leading_jet_eta_tau_pt_20);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_phi_tau_pt_20"))
+      fChain->SetBranchAddress("leading_jet_phi_tau_pt_20", &leading_jet_phi_map[20], &b_leading_jet_phi_tau_pt_20);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_pt_tau_pt_20"))
+      fChain->SetBranchAddress("subleading_jet_pt_tau_pt_20", &subleading_jet_pt_map[20], &b_subleading_jet_pt_tau_pt_20);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_eta_tau_pt_20"))
+      fChain->SetBranchAddress("subleading_jet_eta_tau_pt_20", &subleading_jet_eta_map[20], &b_subleading_jet_eta_tau_pt_20);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_phi_tau_pt_20"))
+      fChain->SetBranchAddress("subleading_jet_phi_tau_pt_20", &subleading_jet_phi_map[20], &b_subleading_jet_phi_tau_pt_20);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_pt_tau_pt_21"))
+      fChain->SetBranchAddress("leading_jet_pt_tau_pt_21", &leading_jet_pt_map[21], &b_leading_jet_pt_tau_pt_21);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_eta_tau_pt_21"))
+      fChain->SetBranchAddress("leading_jet_eta_tau_pt_21", &leading_jet_eta_map[21], &b_leading_jet_eta_tau_pt_21);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_phi_tau_pt_21"))
+      fChain->SetBranchAddress("leading_jet_phi_tau_pt_21", &leading_jet_phi_map[21], &b_leading_jet_phi_tau_pt_21);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_pt_tau_pt_21"))
+      fChain->SetBranchAddress("subleading_jet_pt_tau_pt_21", &subleading_jet_pt_map[21], &b_subleading_jet_pt_tau_pt_21);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_eta_tau_pt_21"))
+      fChain->SetBranchAddress("subleading_jet_eta_tau_pt_21", &subleading_jet_eta_map[21], &b_subleading_jet_eta_tau_pt_21);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_phi_tau_pt_21"))
+      fChain->SetBranchAddress("subleading_jet_phi_tau_pt_21", &subleading_jet_phi_map[21], &b_subleading_jet_phi_tau_pt_21);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_pt_tau_pt_22"))
+      fChain->SetBranchAddress("leading_jet_pt_tau_pt_22", &leading_jet_pt_map[22], &b_leading_jet_pt_tau_pt_22);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_eta_tau_pt_22"))
+      fChain->SetBranchAddress("leading_jet_eta_tau_pt_22", &leading_jet_eta_map[22], &b_leading_jet_eta_tau_pt_22);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_phi_tau_pt_22"))
+      fChain->SetBranchAddress("leading_jet_phi_tau_pt_22", &leading_jet_phi_map[22], &b_leading_jet_phi_tau_pt_22);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_pt_tau_pt_22"))
+      fChain->SetBranchAddress("subleading_jet_pt_tau_pt_22", &subleading_jet_pt_map[22], &b_subleading_jet_pt_tau_pt_22);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_eta_tau_pt_22"))
+      fChain->SetBranchAddress("subleading_jet_eta_tau_pt_22", &subleading_jet_eta_map[22], &b_subleading_jet_eta_tau_pt_22);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_phi_tau_pt_22"))
+      fChain->SetBranchAddress("subleading_jet_phi_tau_pt_22", &subleading_jet_phi_map[22], &b_subleading_jet_phi_tau_pt_22);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_pt_tau_pt_23"))
+      fChain->SetBranchAddress("leading_jet_pt_tau_pt_23", &leading_jet_pt_map[23], &b_leading_jet_pt_tau_pt_23);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_eta_tau_pt_23"))
+      fChain->SetBranchAddress("leading_jet_eta_tau_pt_23", &leading_jet_eta_map[23], &b_leading_jet_eta_tau_pt_23);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_phi_tau_pt_23"))
+      fChain->SetBranchAddress("leading_jet_phi_tau_pt_23", &leading_jet_phi_map[23], &b_leading_jet_phi_tau_pt_23);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_pt_tau_pt_23"))
+      fChain->SetBranchAddress("subleading_jet_pt_tau_pt_23", &subleading_jet_pt_map[23], &b_subleading_jet_pt_tau_pt_23);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_eta_tau_pt_23"))
+      fChain->SetBranchAddress("subleading_jet_eta_tau_pt_23", &subleading_jet_eta_map[23], &b_subleading_jet_eta_tau_pt_23);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_phi_tau_pt_23"))
+      fChain->SetBranchAddress("subleading_jet_phi_tau_pt_23", &subleading_jet_phi_map[23], &b_subleading_jet_phi_tau_pt_23);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_pt_tau_pt_24"))
+      fChain->SetBranchAddress("leading_jet_pt_tau_pt_24", &leading_jet_pt_map[24], &b_leading_jet_pt_tau_pt_24);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_eta_tau_pt_24"))
+      fChain->SetBranchAddress("leading_jet_eta_tau_pt_24", &leading_jet_eta_map[24], &b_leading_jet_eta_tau_pt_24);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_phi_tau_pt_24"))
+      fChain->SetBranchAddress("leading_jet_phi_tau_pt_24", &leading_jet_phi_map[24], &b_leading_jet_phi_tau_pt_24);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_pt_tau_pt_24"))
+      fChain->SetBranchAddress("subleading_jet_pt_tau_pt_24", &subleading_jet_pt_map[24], &b_subleading_jet_pt_tau_pt_24);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_eta_tau_pt_24"))
+      fChain->SetBranchAddress("subleading_jet_eta_tau_pt_24", &subleading_jet_eta_map[24], &b_subleading_jet_eta_tau_pt_24);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_phi_tau_pt_24"))
+      fChain->SetBranchAddress("subleading_jet_phi_tau_pt_24", &subleading_jet_phi_map[24], &b_subleading_jet_phi_tau_pt_24);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_pt_tau_pt_25"))
+      fChain->SetBranchAddress("leading_jet_pt_tau_pt_25", &leading_jet_pt_map[25], &b_leading_jet_pt_tau_pt_25);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_eta_tau_pt_25"))
+      fChain->SetBranchAddress("leading_jet_eta_tau_pt_25", &leading_jet_eta_map[25], &b_leading_jet_eta_tau_pt_25);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_phi_tau_pt_25"))
+      fChain->SetBranchAddress("leading_jet_phi_tau_pt_25", &leading_jet_phi_map[25], &b_leading_jet_phi_tau_pt_25);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_pt_tau_pt_25"))
+      fChain->SetBranchAddress("subleading_jet_pt_tau_pt_25", &subleading_jet_pt_map[25], &b_subleading_jet_pt_tau_pt_25);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_eta_tau_pt_25"))
+      fChain->SetBranchAddress("subleading_jet_eta_tau_pt_25", &subleading_jet_eta_map[25], &b_subleading_jet_eta_tau_pt_25);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_phi_tau_pt_25"))
+      fChain->SetBranchAddress("subleading_jet_phi_tau_pt_25", &subleading_jet_phi_map[25], &b_subleading_jet_phi_tau_pt_25);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_pt_tau_pt_26"))
+      fChain->SetBranchAddress("leading_jet_pt_tau_pt_26", &leading_jet_pt_map[26], &b_leading_jet_pt_tau_pt_26);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_eta_tau_pt_26"))
+      fChain->SetBranchAddress("leading_jet_eta_tau_pt_26", &leading_jet_eta_map[26], &b_leading_jet_eta_tau_pt_26);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_phi_tau_pt_26"))
+      fChain->SetBranchAddress("leading_jet_phi_tau_pt_26", &leading_jet_phi_map[26], &b_leading_jet_phi_tau_pt_26);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_pt_tau_pt_26"))
+      fChain->SetBranchAddress("subleading_jet_pt_tau_pt_26", &subleading_jet_pt_map[26], &b_subleading_jet_pt_tau_pt_26);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_eta_tau_pt_26"))
+      fChain->SetBranchAddress("subleading_jet_eta_tau_pt_26", &subleading_jet_eta_map[26], &b_subleading_jet_eta_tau_pt_26);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_phi_tau_pt_26"))
+      fChain->SetBranchAddress("subleading_jet_phi_tau_pt_26", &subleading_jet_phi_map[26], &b_subleading_jet_phi_tau_pt_26);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_pt_tau_pt_27"))
+      fChain->SetBranchAddress("leading_jet_pt_tau_pt_27", &leading_jet_pt_map[27], &b_leading_jet_pt_tau_pt_27);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_eta_tau_pt_27"))
+      fChain->SetBranchAddress("leading_jet_eta_tau_pt_27", &leading_jet_eta_map[27], &b_leading_jet_eta_tau_pt_27);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_phi_tau_pt_27"))
+      fChain->SetBranchAddress("leading_jet_phi_tau_pt_27", &leading_jet_phi_map[27], &b_leading_jet_phi_tau_pt_27);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_pt_tau_pt_27"))
+      fChain->SetBranchAddress("subleading_jet_pt_tau_pt_27", &subleading_jet_pt_map[27], &b_subleading_jet_pt_tau_pt_27);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_eta_tau_pt_27"))
+      fChain->SetBranchAddress("subleading_jet_eta_tau_pt_27", &subleading_jet_eta_map[27], &b_subleading_jet_eta_tau_pt_27);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_phi_tau_pt_27"))
+      fChain->SetBranchAddress("subleading_jet_phi_tau_pt_27", &subleading_jet_phi_map[27], &b_subleading_jet_phi_tau_pt_27);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_pt_tau_pt_28"))
+      fChain->SetBranchAddress("leading_jet_pt_tau_pt_28", &leading_jet_pt_map[28], &b_leading_jet_pt_tau_pt_28);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_eta_tau_pt_28"))
+      fChain->SetBranchAddress("leading_jet_eta_tau_pt_28", &leading_jet_eta_map[28], &b_leading_jet_eta_tau_pt_28);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_phi_tau_pt_28"))
+      fChain->SetBranchAddress("leading_jet_phi_tau_pt_28", &leading_jet_phi_map[28], &b_leading_jet_phi_tau_pt_28);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_pt_tau_pt_28"))
+      fChain->SetBranchAddress("subleading_jet_pt_tau_pt_28", &subleading_jet_pt_map[28], &b_subleading_jet_pt_tau_pt_28);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_eta_tau_pt_28"))
+      fChain->SetBranchAddress("subleading_jet_eta_tau_pt_28", &subleading_jet_eta_map[28], &b_subleading_jet_eta_tau_pt_28);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_phi_tau_pt_28"))
+      fChain->SetBranchAddress("subleading_jet_phi_tau_pt_28", &subleading_jet_phi_map[28], &b_subleading_jet_phi_tau_pt_28);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_pt_tau_pt_29"))
+      fChain->SetBranchAddress("leading_jet_pt_tau_pt_29", &leading_jet_pt_map[29], &b_leading_jet_pt_tau_pt_29);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_eta_tau_pt_29"))
+      fChain->SetBranchAddress("leading_jet_eta_tau_pt_29", &leading_jet_eta_map[29], &b_leading_jet_eta_tau_pt_29);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_phi_tau_pt_29"))
+      fChain->SetBranchAddress("leading_jet_phi_tau_pt_29", &leading_jet_phi_map[29], &b_leading_jet_phi_tau_pt_29);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_pt_tau_pt_29"))
+      fChain->SetBranchAddress("subleading_jet_pt_tau_pt_29", &subleading_jet_pt_map[29], &b_subleading_jet_pt_tau_pt_29);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_eta_tau_pt_29"))
+      fChain->SetBranchAddress("subleading_jet_eta_tau_pt_29", &subleading_jet_eta_map[29], &b_subleading_jet_eta_tau_pt_29);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_phi_tau_pt_29"))
+      fChain->SetBranchAddress("subleading_jet_phi_tau_pt_29", &subleading_jet_phi_map[29], &b_subleading_jet_phi_tau_pt_29);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_pt_tau_pt_30"))
+      fChain->SetBranchAddress("leading_jet_pt_tau_pt_30", &leading_jet_pt_map[30], &b_leading_jet_pt_tau_pt_30);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_eta_tau_pt_30"))
+      fChain->SetBranchAddress("leading_jet_eta_tau_pt_30", &leading_jet_eta_map[30], &b_leading_jet_eta_tau_pt_30);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_phi_tau_pt_30"))
+      fChain->SetBranchAddress("leading_jet_phi_tau_pt_30", &leading_jet_phi_map[30], &b_leading_jet_phi_tau_pt_30);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_pt_tau_pt_30"))
+      fChain->SetBranchAddress("subleading_jet_pt_tau_pt_30", &subleading_jet_pt_map[30], &b_subleading_jet_pt_tau_pt_30);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_eta_tau_pt_30"))
+      fChain->SetBranchAddress("subleading_jet_eta_tau_pt_30", &subleading_jet_eta_map[30], &b_subleading_jet_eta_tau_pt_30);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_phi_tau_pt_30"))
+      fChain->SetBranchAddress("subleading_jet_phi_tau_pt_30", &subleading_jet_phi_map[30], &b_subleading_jet_phi_tau_pt_30);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_pt_tau_pt_31"))
+      fChain->SetBranchAddress("leading_jet_pt_tau_pt_31", &leading_jet_pt_map[31], &b_leading_jet_pt_tau_pt_31);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_eta_tau_pt_31"))
+      fChain->SetBranchAddress("leading_jet_eta_tau_pt_31", &leading_jet_eta_map[31], &b_leading_jet_eta_tau_pt_31);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_phi_tau_pt_31"))
+      fChain->SetBranchAddress("leading_jet_phi_tau_pt_31", &leading_jet_phi_map[31], &b_leading_jet_phi_tau_pt_31);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_pt_tau_pt_31"))
+      fChain->SetBranchAddress("subleading_jet_pt_tau_pt_31", &subleading_jet_pt_map[31], &b_subleading_jet_pt_tau_pt_31);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_eta_tau_pt_31"))
+      fChain->SetBranchAddress("subleading_jet_eta_tau_pt_31", &subleading_jet_eta_map[31], &b_subleading_jet_eta_tau_pt_31);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_phi_tau_pt_31"))
+      fChain->SetBranchAddress("subleading_jet_phi_tau_pt_31", &subleading_jet_phi_map[31], &b_subleading_jet_phi_tau_pt_31);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_pt_tau_pt_32"))
+      fChain->SetBranchAddress("leading_jet_pt_tau_pt_32", &leading_jet_pt_map[32], &b_leading_jet_pt_tau_pt_32);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_eta_tau_pt_32"))
+      fChain->SetBranchAddress("leading_jet_eta_tau_pt_32", &leading_jet_eta_map[32], &b_leading_jet_eta_tau_pt_32);
+   if (fChain->GetListOfBranches()->FindObject("leading_jet_phi_tau_pt_32"))
+      fChain->SetBranchAddress("leading_jet_phi_tau_pt_32", &leading_jet_phi_map[32], &b_leading_jet_phi_tau_pt_32);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_pt_tau_pt_32"))
+      fChain->SetBranchAddress("subleading_jet_pt_tau_pt_32", &subleading_jet_pt_map[32], &b_subleading_jet_pt_tau_pt_32);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_eta_tau_pt_32"))
+      fChain->SetBranchAddress("subleading_jet_eta_tau_pt_32", &subleading_jet_eta_map[32], &b_subleading_jet_eta_tau_pt_32);
+   if (fChain->GetListOfBranches()->FindObject("subleading_jet_phi_tau_pt_32"))
+      fChain->SetBranchAddress("subleading_jet_phi_tau_pt_32", &subleading_jet_phi_map[32], &b_subleading_jet_phi_tau_pt_32);
+
+   if (fChain->GetListOfBranches()->FindObject("weight"))
+     fChain->SetBranchAddress("weight", &weight, &b_weight);
+   if (fChain->GetListOfBranches()->FindObject("eventnumber"))
+     fChain->SetBranchAddress("eventnumber", &eventnumber, &b_eventnumber);
+   
    Notify();
 }
 

@@ -40,6 +40,9 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
     default_store = "$CMT_STORE_EOS_CATEGORIZATION"
     default_wlcg_fs = "wlcg_fs_categorization"
 
+    def __init__(self, *args, **kwargs):
+        super(AddTrigger, self).__init__(*args, **kwargs)
+
     def create_branch_map(self):
         return len(self.dataset.get_files())
 
@@ -109,7 +112,7 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
         return root
 
     @classmethod
-    def add_dataframe_definitions(self, df):
+    def add_dataframe_definitions(self, df, category=None):
         # leading and subleading L1 Taus
         df = df.Define("lead_sublead_goodl1tau_pt",
             "lead_sublead("
@@ -127,10 +130,10 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
             ")[1]"
         ).Define("lead_sublead_goodl1tau_phi", 
             "lead_sublead("
-                "L1Obj_pt[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 4.7], "
-                "L1Obj_eta[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 4.7], "
-                "L1Obj_phi[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 4.7], "
-                "L1Obj_pt[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 4.7]"  # dum
+                "L1Obj_pt[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
+                "L1Obj_eta[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
+                "L1Obj_phi[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
+                "L1Obj_pt[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1]"  # dum
             ")[2]")
 
         # leading and subleading Reco Taus
@@ -155,44 +158,93 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
             ")[2]")
         
         # leading and subleading L1 jets
-        restriction = (
-            "L1Obj_type == 0 "
-            "&& maskDeltaR("
-                "L1Obj_eta, "
-                "L1Obj_phi, "
-                "lead_sublead_goodl1tau_eta, "
-                "lead_sublead_goodl1tau_phi, "
-                "0.5)"
-        )
-        df = df.Define("lead_sublead_goodl1jet_pt",
-            "lead_sublead("
-                "L1Obj_pt[{0}],"
-                "L1Obj_eta[{0}],"
-                "L1Obj_phi[{0}],"
-                "L1Obj_pt[{0}]"
-            ")[0]".format(restriction))
+        # restriction = (
+            # "L1Obj_type == 0 "
+            # "&& maskDeltaR("
+                # "L1Obj_eta, "
+                # "L1Obj_phi, "
+                # "lead_sublead_goodl1tau_eta, "
+                # "lead_sublead_goodl1tau_phi, "
+                # "0.5)"
+        # )
+        for tau_pt in range(*self.yy_range):
+            restriction = (
+                "L1Obj_type == 0 "
+                "&& maskDeltaR("
+                    "L1Obj_eta, "
+                    "L1Obj_phi, "
+                    "L1Obj_eta[L1Obj_pt >= {0} && L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
+                    "L1Obj_phi[L1Obj_pt >= {0} && L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
+                    "0.5)".format(tau_pt)
+            )
+            df = df.Define("lead_sublead_goodl1jet_pt_tau_pt_%s" % tau_pt,
+                "lead_sublead("
+                    "L1Obj_pt[{0}],"
+                    "L1Obj_eta[{0}],"
+                    "L1Obj_phi[{0}],"
+                    "L1Obj_pt[{0}]"
+                ")[0]".format(restriction))
+            df = df.Define("lead_sublead_goodl1jet_eta_tau_pt_%s" % tau_pt,
+                "lead_sublead("
+                    "L1Obj_pt[{0}],"
+                    "L1Obj_eta[{0}],"
+                    "L1Obj_phi[{0}],"
+                    "L1Obj_pt[{0}]"
+                ")[1]".format(restriction))
+            df = df.Define("lead_sublead_goodl1jet_phi_tau_pt_%s" % tau_pt,
+                "lead_sublead("
+                    "L1Obj_pt[{0}],"
+                    "L1Obj_eta[{0}],"
+                    "L1Obj_phi[{0}],"
+                    "L1Obj_pt[{0}]"
+                ")[2]".format(restriction))
 
-        # leading and subleading offline jets
-        restriction = (
-            "abs(Jet_eta) <= 4.7 && Jet_jetId >= 2 "
-            "&& ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))"
-            "&& maskDeltaR("
-                "Jet_eta, "
-                "Jet_phi, "
-                "lead_sublead_goodtau_eta, "
-                "lead_sublead_goodtau_phi, "
-                "0.5)")
-        df = df.Define("lead_sublead_goodjet_pt",
-            "lead_sublead("
-                "Jet_pt[{0}],"
-                "Jet_eta[{0}],"
-                "Jet_phi[{0}],"
-                "Jet_mass[{0}]"
-            ")[0]".format(restriction))
-        
+            # leading and subleading offline jets
+            # restriction = (
+                # "abs(Jet_eta) <= 4.7 && Jet_jetId >= 2 "
+                # "&& ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))"
+                # "&& maskDeltaR("
+                    # "Jet_eta, "
+                    # "Jet_phi, "
+                    # "lead_sublead_goodtau_eta, "
+                    # "lead_sublead_goodtau_phi, "
+                    # "0.5)")
+            restriction = (
+                "abs(Jet_eta) <= 4.7 && Jet_jetId >= 2 "
+                "&& ((Jet_puId >= 4 && Jet_pt <= 50) || (Jet_pt > 50))"
+                "&& maskDeltaR("
+                    "Jet_eta, "
+                    "Jet_phi, "
+                    "Tau_eta[Tau_pt >= {0} && abs(Tau_eta) <= 2.1], "
+                    "Tau_eta[Tau_pt >= {0} && abs(Tau_phi) <= 2.1], "
+                    "0.5)".format(tau_pt + category.get_aux("add_to_subleading_pt")))
+            df = df.Define("lead_sublead_goodjet_pt_tau_pt_%s" % tau_pt,
+                "lead_sublead("
+                    "Jet_pt[{0}],"
+                    "Jet_eta[{0}],"
+                    "Jet_phi[{0}],"
+                    "Jet_mass[{0}]"
+                ")[0]".format(restriction))
+            df = df.Define("lead_sublead_goodjet_eta_tau_pt_%s" % tau_pt,
+                "lead_sublead("
+                    "Jet_pt[{0}],"
+                    "Jet_eta[{0}],"
+                    "Jet_phi[{0}],"
+                    "Jet_mass[{0}]"
+                ")[1]".format(restriction))
+            df = df.Define("lead_sublead_goodjet_phi_tau_pt_%s" % tau_pt,
+                "lead_sublead("
+                    "Jet_pt[{0}],"
+                    "Jet_eta[{0}],"
+                    "Jet_phi[{0}],"
+                    "Jet_mass[{0}]"
+                ")[2]".format(restriction))
+
         return df
-    
-    def filter_jets(self, df):
+
+    def filter_jets(self, df, category=None):
+        if not category:
+            category = self.category
         return df.Filter(
         # ask for a minimum number of jets (depending on the category)
         # with pt > 20 (+ sth depending on the dataset)
@@ -218,9 +270,9 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
                     "lead_sublead_goodtau_phi, "
                     "0.5)"
                 "].size() <= {2}".format(
-                    self.category.get_aux("add_to_jet_pt"),
-                    self.category.get_aux("nminjets"),
-                    self.category.get_aux("nmaxjets")
+                    category.get_aux("add_to_jet_pt"),
+                    category.get_aux("nminjets"),
+                    category.get_aux("nmaxjets")
                 )
         )
 
@@ -233,7 +285,7 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
 
         # add the needed definitions
         df = self.add_dataframe_definitions(df)
-        
+
         if self.category.selection:
             df = df.Filter(self.category.selection)
 
@@ -294,41 +346,96 @@ class Skim(AddTrigger):
         df = ROOT.RDataFrame(self.tree_name, input_file)
 
         # add the needed definitions
-        df = self.add_dataframe_definitions(df)
-
+        df = self.add_dataframe_definitions(df, self.category)
+        print "DF definition"
         # if self.category.selection:
         #     df = df.Filter(self.category.selection)
 
         # filter the number of offline jets in the event
+        category = self.category
         df = self.filter_jets(df)
+        while category.get_aux("parent_category", None):
+            category = self.config.categories.get(category.get_aux("parent_category", None))
+            print category.name
+            df = self.filter_jets(df, category=category)
 
         branch_names = [
             "leading_l1tau_pt",
+            "leading_l1tau_eta",
+            "leading_l1tau_phi",
             "subleading_l1tau_pt",
-            "leading_l1jet_pt",
-            "subleading_l1jet_pt",
+            "subleading_l1tau_eta",
+            "subleading_l1tau_phi",
             "leading_tau_pt",
+            "leading_tau_eta",
+            "leading_tau_phi",
             "subleading_tau_pt",
-            "leading_jet_pt",
-            "subleading_jet_pt"
+            "subleading_tau_eta",
+            "subleading_tau_phi",
         ]
+        
+        for tau_pt in range(*self.yy_range):
+            branch_names += [
+                "leading_l1jet_pt_tau_pt_%s" % tau_pt,
+                "leading_l1jet_eta_tau_pt_%s" % tau_pt,
+                "leading_l1jet_phi_tau_pt_%s" % tau_pt,
+                "subleading_l1jet_pt_tau_pt_%s" % tau_pt,
+                "subleading_l1jet_eta_tau_pt_%s" % tau_pt,
+                "subleading_l1jet_phi_tau_pt_%s" % tau_pt,
+                "leading_jet_pt_tau_pt_%s" % tau_pt,
+                "leading_jet_eta_tau_pt_%s" % tau_pt,
+                "leading_jet_phi_tau_pt_%s" % tau_pt,
+                "subleading_jet_pt_tau_pt_%s" % tau_pt,
+                "subleading_jet_eta_tau_pt_%s" % tau_pt,
+                "subleading_jet_phi_tau_pt_%s" % tau_pt,
+            ]
 
         df = df.Define("leading_l1tau_pt", "lead_sublead_goodl1tau_pt[0]")
+        df = df.Define("leading_l1tau_eta", "lead_sublead_goodl1tau_eta[0]")
+        df = df.Define("leading_l1tau_phi", "lead_sublead_goodl1tau_phi[0]")
         df = df.Define("subleading_l1tau_pt", "lead_sublead_goodl1tau_pt[1]")
-        df = df.Define("leading_l1jet_pt", "lead_sublead_goodl1jet_pt[0]")
-        df = df.Define("subleading_l1jet_pt", "lead_sublead_goodl1jet_pt[1]")
+        df = df.Define("subleading_l1tau_eta", "lead_sublead_goodl1tau_eta[1]")
+        df = df.Define("subleading_l1tau_phi", "lead_sublead_goodl1tau_phi[1]")
 
         df = df.Define("leading_tau_pt", "lead_sublead_goodtau_pt[0]")
+        df = df.Define("leading_tau_eta", "lead_sublead_goodtau_eta[0]")
+        df = df.Define("leading_tau_phi", "lead_sublead_goodtau_phi[0]")
         df = df.Define("subleading_tau_pt", "lead_sublead_goodtau_pt[1]")
-        df = df.Define("leading_jet_pt", "lead_sublead_goodjet_pt[0]")
-        df = df.Define("subleading_jet_pt", "lead_sublead_goodjet_pt[1]")
+        df = df.Define("subleading_tau_eta", "lead_sublead_goodtau_eta[1]")
+        df = df.Define("subleading_tau_phi", "lead_sublead_goodtau_phi[1]")
+
+        for tau_pt in range(*self.yy_range):
+            df = df.Define("leading_l1jet_pt_tau_pt_%s" % tau_pt,
+                "lead_sublead_goodl1jet_pt_tau_pt_%s[0]" % tau_pt)
+            df = df.Define("leading_l1jet_eta_tau_pt_%s" % tau_pt,
+                "lead_sublead_goodl1jet_eta_tau_pt_%s[0]" % tau_pt)
+            df = df.Define("leading_l1jet_phi_tau_pt_%s" % tau_pt,
+                "lead_sublead_goodl1jet_phi_tau_pt_%s[0]" % tau_pt)
+            df = df.Define("subleading_l1jet_pt_tau_pt_%s" % tau_pt,
+                "lead_sublead_goodl1jet_pt_tau_pt_%s[1]" % tau_pt)
+            df = df.Define("subleading_l1jet_eta_tau_pt_%s" % tau_pt,
+                "lead_sublead_goodl1jet_eta_tau_pt_%s[1]" % tau_pt)
+            df = df.Define("subleading_l1jet_phi_tau_pt_%s" % tau_pt,
+                "lead_sublead_goodl1jet_phi_tau_pt_%s[1]" % tau_pt)
+            df = df.Define("leading_jet_pt_tau_pt_%s" % tau_pt,
+                "lead_sublead_goodjet_pt_tau_pt_%s[0]" % tau_pt)
+            df = df.Define("leading_jet_eta_tau_pt_%s" % tau_pt,
+                "lead_sublead_goodjet_eta_tau_pt_%s[0]" % tau_pt)
+            df = df.Define("leading_jet_phi_tau_pt_%s" % tau_pt,
+                "lead_sublead_goodjet_phi_tau_pt_%s[0]" % tau_pt)
+            df = df.Define("subleading_jet_pt_tau_pt_%s" % tau_pt,
+                "lead_sublead_goodjet_pt_tau_pt_%s[1]" % tau_pt)
+            df = df.Define("subleading_jet_eta_tau_pt_%s" % tau_pt,
+                "lead_sublead_goodjet_eta_tau_pt_%s[1]" % tau_pt)
+            df = df.Define("subleading_jet_phi_tau_pt_%s" % tau_pt,
+                "lead_sublead_goodjet_phi_tau_pt_%s[1]" % tau_pt)
 
         df = df.Filter("subleading_l1tau_pt >= 20 && subleading_tau_pt >= 20")
-
+        print "Branches defined"
         branch_list = ROOT.vector('string')()
         for branch_name in self.additional_branches + branch_names:
             branch_list.push_back(branch_name)
-
+        print "Saving..."
         df.Snapshot(self.tree_name, create_file_dir(output_file), branch_list)
 
 
@@ -652,10 +759,152 @@ class AsymmAcceptance(Acceptance):
         with open(create_file_dir(stats_path), "w") as json_f:
             json.dump(stats, json_f, indent=4)
 
+
 class AsymmAcceptanceWrapper(DatasetCategoryWrapperTask):
 
     def atomic_requires(self, dataset, category):
         return AsymmAcceptance.vreq(self, dataset_name=dataset.name, category_name=category.name)
+
+
+class AsymmVBFAcceptance(Acceptance):
+    xx_range = (32, 40)
+    yy_range = (20, 33)
+    zz_range = (20, 160)
+
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+
+        df = ROOT.RDataFrame(self.tree_name, input_file)
+        
+        ROOT.gInterpreter.Declare("""
+            #include <math.h>
+            using Vfloat = const ROOT::RVec<float>&;
+            float inv_mass(float pt1, float eta1, float phi1, float pt2, float eta2, float phi2){
+                return sqrt(2 * pt1 * pt2 * (cosh(eta1 - eta2) - cos(phi1 - phi2)));
+            }
+            """
+        )
+
+        ditau_acc = df.Filter(
+            "(leading_l1tau_pt >= {0} "
+                "&& subleading_l1tau_pt >= {1}"
+                "&& leading_tau_pt >= ({0} + {2}) "
+                "&& subleading_tau_pt >= ({1} + {3})) || "
+            "(leading_l1jet_pt >= 90"
+                "&& subleading_l1jet_pt >= 30"
+                "&& leading_jet_pt >= 90 + {4}"
+                "&& subleading_jet_pt >= 30 + {4}"
+                "&& inv_mass(leading_l1jet_pt, leading_l1jet_eta, leading_l1jet_phi,"
+                    "subleading_l1jet_pt, subleading_l1jet_eta, subleading_l1jet_phi) >= 620"
+                "&& inv_mass(leading_jet_pt, leading_jet_eta, leading_jet_phi,"
+                    "subleading_jet_pt, subleading_jet_eta, subleading_jet_phi) >= 700)"
+                "".format(
+                    32,
+                    32,
+                    self.category.get_aux("add_to_leading_pt"),
+                    self.category.get_aux("add_to_subleading_pt"),
+                    self.category.get_aux("add_to_trigger_jets", 10)
+            )
+        ).Count()
+
+        ROOT.gSystem.Load("%s" % os.path.expandvars("$CMT_BASE/cmt/tasks/./TotalTrigger_C.so"))
+
+        run = ROOT.TotalTrigger(input_file, self.output()["root"].path, self.tree_name,
+            self.xx_range[0], self.xx_range[1], self.yy_range[0], self.yy_range[1],
+            self.zz_range[0], self.zz_range[1], -1, -1,
+            self.category.get_aux("add_to_leading_pt"),
+            self.category.get_aux("add_to_subleading_pt"),
+            self.category.get_aux("add_to_trigger_jets", 10)
+        )
+        run.AsymmVBFLoop()
+
+        f = ROOT.TFile.Open(input_file)
+        tree = f.Get(self.tree_name)
+        stats = {
+            "nevents": tree.GetEntries(),
+            "den": ditau_acc.GetValue()
+        }
+        f.Close()
+        stats_path = self.output()["stats"].path
+        with open(create_file_dir(stats_path), "w") as json_f:
+            json.dump(stats, json_f, indent=4)
+
+
+class AsymmKetiAcceptance(Acceptance):
+    xx_range = (32, 40)
+    yy_range = (20, 33)
+    zz_range = (20, 160)
+
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+
+        df = ROOT.RDataFrame(self.tree_name, input_file)
+        
+        ROOT.gInterpreter.Declare("""
+            #include <math.h>
+            using Vfloat = const ROOT::RVec<float>&;
+            float inv_mass(float pt1, float eta1, float phi1, float pt2, float eta2, float phi2){
+                return sqrt(2 * pt1 * pt2 * (cosh(eta1 - eta2) - cos(phi1 - phi2)));
+            }
+            """
+        )
+
+        ditau_acc = df.Filter(
+            "(leading_l1tau_pt >= {0} "
+                "&& subleading_l1tau_pt >= {1}"
+                "&& leading_tau_pt >= ({0} + {2}) "
+                "&& subleading_tau_pt >= ({1} + {3})) || "
+            "(leading_l1jet_pt >= 35"
+                "&& subleading_l1jet_pt >= 35"
+                "&& leading_jet_pt >= 35 + {4}"
+                "&& subleading_jet_pt >= 35 + {4}"
+                "&& inv_mass(leading_l1jet_pt, leading_l1jet_eta, leading_l1jet_phi,"
+                    "subleading_l1jet_pt, subleading_l1jet_eta, subleading_l1jet_phi) >= 450"
+                "&& inv_mass(leading_jet_pt, leading_jet_eta, leading_jet_phi,"
+                    "subleading_jet_pt, subleading_jet_eta, subleading_jet_phi) >= 550"
+                "&& leading_l1tau_pt >= 45"
+                "&& leading_tau_pt >= 45 + {2})".format(
+                    32,
+                    32,
+                    self.category.get_aux("add_to_leading_pt"),
+                    self.category.get_aux("add_to_subleading_pt"),
+                    self.category.get_aux("add_to_trigger_jets", 10)
+            )
+        ).Count()
+
+        ROOT.gSystem.Load("%s" % os.path.expandvars("$CMT_BASE/cmt/tasks/./TotalTrigger_C.so"))
+
+        run = ROOT.TotalTrigger(input_file, self.output()["root"].path, self.tree_name,
+            self.xx_range[0], self.xx_range[1], self.yy_range[0], self.yy_range[1],
+            self.zz_range[0], self.zz_range[1], -1, -1,
+            self.category.get_aux("add_to_leading_pt"),
+            self.category.get_aux("add_to_subleading_pt"),
+            self.category.get_aux("add_to_trigger_jets", 10)
+        )
+        run.AsymmKetiLoop()
+
+        f = ROOT.TFile.Open(input_file)
+        tree = f.Get(self.tree_name)
+        stats = {
+            "nevents": tree.GetEntries(),
+            "den": ditau_acc.GetValue()
+        }
+        f.Close()
+        stats_path = self.output()["stats"].path
+        with open(create_file_dir(stats_path), "w") as json_f:
+            json.dump(stats, json_f, indent=4)
+
+
+class AsymmVBFAcceptanceWrapper(DatasetCategoryWrapperTask):
+
+    def atomic_requires(self, dataset, category):
+        return AsymmVBFAcceptance.vreq(self, dataset_name=dataset.name, category_name=category.name)
+
+
+class AsymmKetiAcceptanceWrapper(DatasetCategoryWrapperTask):
+
+    def atomic_requires(self, dataset, category):
+        return AsymmKetiAcceptance.vreq(self, dataset_name=dataset.name, category_name=category.name)
 
 
 class AsymmDiJetAcceptance(Acceptance):
@@ -701,10 +950,150 @@ class AsymmDiJetAcceptance(Acceptance):
         with open(create_file_dir(stats_path), "w") as json_f:
             json.dump(stats, json_f, indent=4)
 
+
 class AsymmDiJetAcceptanceWrapper(DatasetCategoryWrapperTask):
 
     def atomic_requires(self, dataset, category):
         return AsymmDiJetAcceptance.vreq(self, dataset_name=dataset.name, category_name=category.name)
+
+
+class AsymmVBFDiJetAcceptance(Acceptance):
+    xx_range = (32, 40)
+    yy_range = (20, 33)
+    dzz_range = (20, 100)
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+
+        df = ROOT.RDataFrame(self.tree_name, input_file)
+
+        ROOT.gInterpreter.Declare("""
+            #include <math.h>
+            using Vfloat = const ROOT::RVec<float>&;
+            float inv_mass(float pt1, float eta1, float phi1, float pt2, float eta2, float phi2){
+                return sqrt(2 * pt1 * pt2 * (cosh(eta1 - eta2) - cos(phi1 - phi2)));
+            }
+            """
+        )
+
+        ditau_acc = df.Filter(
+            "(leading_l1tau_pt >= {0} "
+                "&& subleading_l1tau_pt >= {1}"
+                "&& leading_tau_pt >= ({0} + {2}) "
+                "&& subleading_tau_pt >= ({1} + {3})) || "
+            "(leading_l1jet_pt >= 90"
+                "&& subleading_l1jet_pt >= 30"
+                "&& leading_jet_pt >= 90 + {4}"
+                "&& subleading_jet_pt >= 30 + {4}"
+                "&& inv_mass(leading_l1jet_pt, leading_l1jet_eta, leading_l1jet_phi,"
+                    "subleading_l1jet_pt, subleading_l1jet_eta, subleading_l1jet_phi) >= 620"
+                "&& inv_mass(leading_jet_pt, leading_jet_eta, leading_jet_phi,"
+                    "subleading_jet_pt, subleading_jet_eta, subleading_jet_phi) >= 750)"
+                "".format(
+                    32,
+                    32,
+                    self.category.get_aux("add_to_leading_pt"),
+                    self.category.get_aux("add_to_subleading_pt"),
+                    self.category.get_aux("add_to_trigger_jets", 10)
+            )
+        ).Count()
+
+        ROOT.gSystem.Load("%s" % os.path.expandvars("$CMT_BASE/cmt/tasks/./TotalTrigger_C.so"))
+
+        run = ROOT.TotalTrigger(input_file, self.output()["root"].path, self.tree_name,
+            self.xx_range[0], self.xx_range[1], self.yy_range[0], self.yy_range[1],
+            -1, -1, self.dzz_range[0], self.dzz_range[1],
+            self.category.get_aux("add_to_leading_pt"),
+            self.category.get_aux("add_to_subleading_pt"),
+            self.category.get_aux("add_to_trigger_jets", 10)
+        )
+        run.AsymmVBFDiJetLoop()
+
+        f = ROOT.TFile.Open(input_file)
+        tree = f.Get(self.tree_name)
+        stats = {
+            "nevents": tree.GetEntries(),
+            "den": ditau_acc.GetValue()
+        }
+        f.Close()
+        stats_path = self.output()["stats"].path
+        with open(create_file_dir(stats_path), "w") as json_f:
+            json.dump(stats, json_f, indent=4)
+
+
+class AsymmKetiDiJetAcceptance(Acceptance):
+    xx_range = (32, 40)
+    yy_range = (20, 33)
+    dzz_range = (20, 100)
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+
+        df = ROOT.RDataFrame(self.tree_name, input_file)
+
+        ROOT.gInterpreter.Declare("""
+            #include <math.h>
+            using Vfloat = const ROOT::RVec<float>&;
+            float inv_mass(float pt1, float eta1, float phi1, float pt2, float eta2, float phi2){
+                return sqrt(2 * pt1 * pt2 * (cosh(eta1 - eta2) - cos(phi1 - phi2)));
+            }
+            """
+        )
+
+        ditau_acc = df.Filter(
+            "(leading_l1tau_pt >= {0} "
+                "&& subleading_l1tau_pt >= {1}"
+                "&& leading_tau_pt >= ({0} + {2}) "
+                "&& subleading_tau_pt >= ({1} + {3})) || "
+            "(leading_l1jet_pt >= 35"
+                "&& subleading_l1jet_pt >= 35"
+                "&& leading_jet_pt >= 35 + {4}"
+                "&& subleading_jet_pt >= 35 + {4}"
+                "&& inv_mass(leading_l1jet_pt, leading_l1jet_eta, leading_l1jet_phi,"
+                    "subleading_l1jet_pt, subleading_l1jet_eta, subleading_l1jet_phi) >= 450"
+                "&& inv_mass(leading_jet_pt, leading_jet_eta, leading_jet_phi,"
+                    "subleading_jet_pt, subleading_jet_eta, subleading_jet_phi) >= 550"
+                "&& leading_l1tau_pt >= 45"
+                "&& leading_tau_pt >= 45 + {2})".format(
+                    32,
+                    32,
+                    self.category.get_aux("add_to_leading_pt"),
+                    self.category.get_aux("add_to_subleading_pt"),
+                    self.category.get_aux("add_to_trigger_jets", 10)
+            )
+        ).Count()
+
+        ROOT.gSystem.Load("%s" % os.path.expandvars("$CMT_BASE/cmt/tasks/./TotalTrigger_C.so"))
+
+        run = ROOT.TotalTrigger(input_file, self.output()["root"].path, self.tree_name,
+            self.xx_range[0], self.xx_range[1], self.yy_range[0], self.yy_range[1],
+            -1, -1, self.dzz_range[0], self.dzz_range[1],
+            self.category.get_aux("add_to_leading_pt"),
+            self.category.get_aux("add_to_subleading_pt"),
+            self.category.get_aux("add_to_trigger_jets", 10)
+        )
+        run.AsymmKetiDiJetLoop()
+
+        f = ROOT.TFile.Open(input_file)
+        tree = f.Get(self.tree_name)
+        stats = {
+            "nevents": tree.GetEntries(),
+            "den": ditau_acc.GetValue()
+        }
+        f.Close()
+        stats_path = self.output()["stats"].path
+        with open(create_file_dir(stats_path), "w") as json_f:
+            json.dump(stats, json_f, indent=4)
+
+
+class AsymmVBFDiJetAcceptanceWrapper(DatasetCategoryWrapperTask):
+
+    def atomic_requires(self, dataset, category):
+        return AsymmVBFDiJetAcceptance.vreq(self, dataset_name=dataset.name, category_name=category.name)
+
+
+class AsymmKetiDiJetAcceptanceWrapper(DatasetCategoryWrapperTask):
+
+    def atomic_requires(self, dataset, category):
+        return AsymmKetiDiJetAcceptance.vreq(self, dataset_name=dataset.name, category_name=category.name)
 
 
 class ComputeRate(AddTrigger):
@@ -714,8 +1103,10 @@ class ComputeRate(AddTrigger):
         'nJets', 'jetEt', 'jetEta', 'jetPhi'
     ]
     
-    tree_name = "l1UpgradeTree/L1UpgradeTree"
-    #tree_name = "l1UpgradeEmuTree/L1UpgradeTree"
+    def __init__(self, *args, **kwargs):
+        super(ComputeRate, self).__init__(*args, **kwargs)
+        self.tree_name = self.dataset.get_aux("treename", "l1UpgradeTree/L1UpgradeTree")
+        #tree_name = "l1UpgradeEmuTree/L1UpgradeTree"
 
     def output(self):
         return self.local_target("data_{}.root".format(self.branch))
@@ -747,45 +1138,49 @@ class ComputeRate(AddTrigger):
             ")[2]"
         )
         
-        df = df.Define("lead_sublead_goodl1jet_pt",
-            "lead_sublead("
-                "jetEt["
-                    "maskDeltaR("
-                        "jetEta, "
-                        "jetPhi, "
-                        "lead_sublead_goodl1tau_eta, "
-                        "lead_sublead_goodl1tau_phi, "
-                        "0.5) "
-                    "&& jetBx == 0"
-                "],"
-                "jetEta["
-                    "maskDeltaR("
-                        "jetEta, "
-                        "jetPhi, "
-                        "lead_sublead_goodl1tau_eta, "
-                        "lead_sublead_goodl1tau_phi, "
-                        "0.5) "
-                    "&& jetBx == 0"
-                "],"
-                "jetPhi["
-                    "maskDeltaR("
-                        "jetEta, "
-                        "jetPhi, "
-                        "lead_sublead_goodl1tau_eta, "
-                        "lead_sublead_goodl1tau_phi, "
-                        "0.5) "
-                    "&& jetBx == 0"
-                "],"
-                "jetEt["
-                    "maskDeltaR("
-                        "jetEta, "
-                        "jetPhi, "
-                        "lead_sublead_goodl1tau_eta, "
-                        "lead_sublead_goodl1tau_phi, "
-                        "0.5) "
-                    "&& jetBx == 0"
-                "]"
-            ")[0]")
+        # restriction = (
+            # "maskDeltaR("
+                # "jetEta, "
+                # "jetPhi, "
+                # "lead_sublead_goodl1tau_eta, "
+                # "lead_sublead_goodl1tau_phi, "
+                # "0.5)"
+            # "&& jetBx == 0"
+        # )
+        for tau_pt in range(*self.yy_range):
+            restriction = (
+                "maskDeltaR("
+                    "jetEta, "
+                    "jetPhi, "
+                    "tauEta[tauEt >= {0} && tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
+                    "tauPhi[tauEt >= {0} && tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
+                    "0.5)"
+                "&& jetBx == 0".format(tau_pt)
+            )
+            
+            df = df.Define("lead_sublead_goodl1jet_pt_tau_pt_%s" % tau_pt,
+                "lead_sublead("
+                    "jetEt[{0}],"
+                    "jetEta[{0}],"
+                    "jetPhi[{0}],"
+                    "jetEt[{0}]"
+                ")[0]".format(restriction))
+
+            df = df.Define("lead_sublead_goodl1jet_eta_tau_pt_%s" % tau_pt,
+                "lead_sublead("
+                    "jetEt[{0}],"
+                    "jetEta[{0}],"
+                    "jetPhi[{0}],"
+                    "jetEt[{0}]"
+                ")[1]".format(restriction))
+
+            df = df.Define("lead_sublead_goodl1jet_phi_tau_pt_%s" % tau_pt,
+                "lead_sublead("
+                    "jetEt[{0}],"
+                    "jetEta[{0}],"
+                    "jetPhi[{0}],"
+                    "jetEt[{0}]"
+                ")[2]".format(restriction))
         
         return df
 
@@ -844,12 +1239,83 @@ class ComputeRate(AddTrigger):
 
 
 class L1Skim(ComputeRate):
+    
+    def __init__(self, *args, **kwargs):
+        super(L1Skim, self).__init__(*args, **kwargs)
+        self.event_tree_name = self.dataset.get_aux("event_treename", "l1EventTree/L1EventTree")
+
+    @classmethod
+    def get_pu_per_ls(self, filename="$CMT_BASE/cmt/tasks/run_lumi.csv"):
+        import csv
+        d = {}
+        keys = ["fill", "run", "ls", "pu"]
+        
+        with open(os.path.expandvars(filename)) as f:
+            lines = csv.reader(f)
+            for line in lines:
+                line = dict(zip(keys, line))
+                try:
+                    run = int(line["run"])
+                    if run not in d:
+                        d[int(line["run"])] = []
+                    d[int(line["run"])].append((int(line["ls"]), float(line["pu"])))
+                except ValueError:
+                    continue
+                    
+        return d
+        
+    @classmethod
+    def add_to_root(self, root):
+        root = ComputeRate.add_to_root(root)
+        d = self.get_pu_per_ls()
+        
+        dict_to_cpp = "{"
+        for irun, (run, values) in enumerate(d.items()):
+            dict_to_cpp += "{%s, {" % run
+            for i, value in enumerate(values):
+                # if i == 0:
+                    # dict_to_cpp += "{%s, %s} " % (value[0], value[1])
+                    # break
+                dict_to_cpp += "{%s, %s}%s " % (value[0], value[1], (", " if i < len(values) - 1 else ""))
+            dict_to_cpp += "}}%s" % (", " if irun < len(d.keys()) - 1 else "")
+        dict_to_cpp += "}"
+        root.gInterpreter.Declare("""
+            std::map <int, std::map<int, float>> pu_lumi = %s;
+        """ % dict_to_cpp)
+            # root.gInterpreter.Declare("""
+                # std::map<int, float> run_{0} = {1};
+            # """.format(key, run))
+
+            # # for value in values:
+                # # root.gInterpreter.Declare("""
+                    # # run_{0}[{1}] = {2};
+                # # """.format(key, value[0], value[1]))
+            
+            # root.gInterpreter.Declare("""
+                # pu_lumi[{0}] = run_{0};
+            # """.format(key))
+            
+        root.gInterpreter.Declare("""
+            float compute_weight(int run, int ls) {
+                if (pu_lumi[run][ls] == 0) return 0; 
+                else return 1./pu_lumi[run][ls];
+            }
+        """)
+        return root
+
     def get_new_dataframe(self, input_file, output_file):
         ROOT = import_root()
         ROOT = self.add_to_root(ROOT)
         # ROOT.ROOT.EnableImplicitMT()
 
-        df = ROOT.RDataFrame(self.tree_name, input_file)
+        tchain = ROOT.TChain(self.tree_name)
+        tchain.Add("{}/{}".format(input_file, self.tree_name))
+        event_tchain = ROOT.TChain(self.event_tree_name)
+        event_tchain.Add("{}/{}".format(input_file, self.event_tree_name))
+        tchain.AddFriend(event_tchain, "event")
+        df = ROOT.RDataFrame(tchain)
+
+        #df = ROOT.RDataFrame(self.tree_name, input_file)
 
         # add the needed definitions
         df = self.add_dataframe_definitions(df)
@@ -861,18 +1327,50 @@ class L1Skim(ComputeRate):
         #df = self.filter_jets(df)
 
         branch_names = [
+            "eventnumber",
             "leading_l1tau_pt",
+            "leading_l1tau_eta",
+            "leading_l1tau_phi",
             "subleading_l1tau_pt",
-            "leading_l1jet_pt",
-            "subleading_l1jet_pt"
+            "subleading_l1tau_eta",
+            "subleading_l1tau_phi",
+            "weight"
         ]
+        
+        for tau_pt in range(*self.yy_range):
+            branch_names += [
+                "leading_l1jet_pt_tau_pt_%s" % tau_pt,
+                "leading_l1jet_eta_tau_pt_%s" % tau_pt,
+                "leading_l1jet_phi_tau_pt_%s" % tau_pt,
+                "subleading_l1jet_pt_tau_pt_%s" % tau_pt,
+                "subleading_l1jet_eta_tau_pt_%s" % tau_pt,
+                "subleading_l1jet_phi_tau_pt_%s" % tau_pt,
+            ]
 
         df = df.Define("leading_l1tau_pt", "lead_sublead_goodl1tau_pt[0]")
+        df = df.Define("leading_l1tau_eta", "lead_sublead_goodl1tau_eta[0]")
+        df = df.Define("leading_l1tau_phi", "lead_sublead_goodl1tau_phi[0]")
         df = df.Define("subleading_l1tau_pt", "lead_sublead_goodl1tau_pt[1]")
-        df = df.Define("leading_l1jet_pt", "lead_sublead_goodl1jet_pt[0]")
-        df = df.Define("subleading_l1jet_pt", "lead_sublead_goodl1jet_pt[1]")
-
-        #df = df.Filter("subleading_l1tau_pt >= 20")
+        df = df.Define("subleading_l1tau_eta", "lead_sublead_goodl1tau_eta[1]")
+        df = df.Define("subleading_l1tau_phi", "lead_sublead_goodl1tau_phi[1]")
+        for tau_pt in range(*self.yy_range):
+            df = df.Define("leading_l1jet_pt_tau_pt_%s" % tau_pt,
+                "lead_sublead_goodl1jet_pt_tau_pt_%s[0]" % tau_pt)
+            df = df.Define("leading_l1jet_eta_tau_pt_%s" % tau_pt,
+                "lead_sublead_goodl1jet_eta_tau_pt_%s[0]" % tau_pt)
+            df = df.Define("leading_l1jet_phi_tau_pt_%s" % tau_pt,
+                "lead_sublead_goodl1jet_phi_tau_pt_%s[0]" % tau_pt)
+            df = df.Define("subleading_l1jet_pt_tau_pt_%s" % tau_pt,
+                "lead_sublead_goodl1jet_pt_tau_pt_%s[1]" % tau_pt)
+            df = df.Define("subleading_l1jet_eta_tau_pt_%s" % tau_pt,
+                "lead_sublead_goodl1jet_eta_tau_pt_%s[1]" % tau_pt)
+            df = df.Define("subleading_l1jet_phi_tau_pt_%s" % tau_pt,
+                "lead_sublead_goodl1jet_phi_tau_pt_%s[1]" % tau_pt)
+        # df = df.Define("run", "event.run")
+        # df = df.Define("ls", "event.lumi")
+        
+        df = df.Define("weight", "compute_weight(event.run, event.lumi)")
+        df = df.Define("eventnumber", "event.event")
 
         branch_list = ROOT.vector('string')()
         for branch_name in self.additional_branches + branch_names:
@@ -884,8 +1382,8 @@ class L1Skim(ComputeRate):
 class Rate(ComputeRate):
     xx_range = (32, 40)
     yy_range = (20, 33)
-    zz_range = (20, 160)
-    dzz_range = (20, 100)
+    zz_range = (20, 80)
+    dzz_range = (20, 80)
 
     def workflow_requires(self):
         return {"data": L1Skim.vreq(self, _prefer_cli=["workflow"])}
@@ -952,25 +1450,48 @@ class DiTauRate(ComputeRate):
 
         df = ROOT.RDataFrame(self.tree_name, input_file)
         counts = {}
-
-        for xx, xxp in itertools.product(range(*self.xx_range), range(*self.xx_range)):
-            counts[(xx, xxp)] = df.Filter(
-                "leading_l1tau_pt >= {0} "
-                "&& subleading_l1tau_pt >= {1}".format(xx, xxp)
-            ).Count()
+        counts_noweight = {}
+        hmodel = ("total", "", 1, 1, 2)
+        
+        ROOT.gInterpreter.Declare("""
+            float get_weight(float weight) {
+                if (weight == 0) return 0.;
+                else return weight;                    
+            }
+        """)
+        
+        # counts["total"] = df.Define("myweight", "get_weight(weight)").Define(
+        #   "pass", "leading_l1tau_pt > -999").Histo1D(hmodel, "pass", "myweight")
+        for xx in range(*self.xx_range):
+            for xxp in range(self.xx_range[0], xx + 1):
+                hmodel = ("%s_%s" % (xx, xxp), "", 1, 1, 2)
+                counts[(xx, xxp)] = df.Define("myweight", "get_weight(weight)").Define(
+                    "pass", "leading_l1tau_pt >= {0} && subleading_l1tau_pt >= {1}".format(xx, xxp)
+                ).Histo1D(hmodel, "pass", "myweight")
+                counts_noweight[(xx, xxp)] = df.Define("pass", "leading_l1tau_pt >= {0} "
+                    "&& subleading_l1tau_pt >= {1}".format(xx, xxp)).Histo1D(hmodel, "pass")
+                # counts[(xx, xxp)] = df.Filter(
+                    # "leading_l1tau_pt >= {0} "
+                    # "&& subleading_l1tau_pt >= {1}".format(xx, xxp)
+                # ).Count()
         
         histo2D = ROOT.TH2F("histo_ditau", "; xx; xxp; Events", 8, 32, 40, 8, 32, 40)
-        for xx, xxp in itertools.product(range(*self.xx_range), range(*self.xx_range)):
-            histo2D.Fill(xx, xxp, counts[(xx, xxp)].GetValue())
+        histo2D_noweight = ROOT.TH2F("histo_ditau_noweight", "; xx; xxp; Events", 8, 32, 40, 8, 32, 40)
+        for xx in range(*self.xx_range):
+            for xxp in range(self.xx_range[0], xx + 1):
+                histo2D.Fill(xx, xxp, counts[(xx, xxp)].Integral())
+                histo2D_noweight.Fill(xx, xxp, counts_noweight[(xx, xxp)].Integral())
 
         f = ROOT.TFile.Open(self.output()["root"].path, "RECREATE")
         histo2D.Write()
+        histo2D_noweight.Write()
         f.Close()
 
         f = ROOT.TFile.Open(input_file)
         tree = f.Get(self.tree_name)
         stats = {
-            "nevents": tree.GetEntries(),
+            #"nevents": counts["total"].Integral(),
+             "nevents": tree.GetEntries(),
         }
         f.Close()
         stats_path = self.output()["stats"].path
@@ -991,6 +1512,10 @@ class DiTauRate(ComputeRate):
 
 
 class AsymmRate(Rate):
+
+    xx_range = (32, 40)
+    yy_range = (20, 33)
+    zz_range = (20, 160)
 
     def get_new_dataframe(self, input_file, output_file):
         ROOT = import_root()
@@ -1017,6 +1542,37 @@ class AsymmRate(Rate):
             json.dump(stats, json_f, indent=4)
 
 
+class AsymmVBFRate(Rate):
+
+    xx_range = (32, 40)
+    yy_range = (20, 33)
+    zz_range = (20, 160)
+
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+
+        #ROOT.gROOT.ProcessLine(
+        #    ".L %s " % os.path.expandvars("$CMT_BASE/cmt/tasks/TotalTrigger.C++"))
+        ROOT.gSystem.Load("%s" % os.path.expandvars("$CMT_BASE/cmt/tasks/./TotalTrigger_C.so"))
+        
+        run = ROOT.TotalTrigger(input_file, self.output()["root"].path, self.tree_name,
+            self.xx_range[0], self.xx_range[1], self.yy_range[0], self.yy_range[1],
+            self.zz_range[0], self.zz_range[1], -1, -1,
+            -1, -1, -1
+        )
+        run.RateAsymmVBFLoop()
+
+        f = ROOT.TFile.Open(input_file)
+        tree = f.Get(self.tree_name)
+        stats = {
+            "nevents": tree.GetEntries(),
+        }
+        f.Close()
+        stats_path = self.output()["stats"].path
+        with open(create_file_dir(stats_path), "w") as json_f:
+            json.dump(stats, json_f, indent=4)
+
+
 # class AsymmRateWrapper(DatasetCategoryWrapperTask):
 
     # def atomic_requires(self, dataset, category):
@@ -1024,6 +1580,10 @@ class AsymmRate(Rate):
 
 
 class AsymmDiJetRate(Rate):
+
+    xx_range = (32, 40)
+    yy_range = (20, 33)
+    dzz_range = (20, 100)
 
     def get_new_dataframe(self, input_file, output_file):
         ROOT = import_root()
@@ -1054,6 +1614,37 @@ class AsymmDiJetRate(Rate):
 
     # def atomic_requires(self, dataset, category):
         # return AsymmDiJetRate.vreq(self, dataset_name=dataset.name, category_name=category.name)
+
+
+class AsymmVBFDiJetRate(Rate):
+
+    xx_range = (32, 40)
+    yy_range = (20, 33)
+    dzz_range = (20, 100)
+
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+
+        #ROOT.gROOT.ProcessLine(
+        #    ".L %s " % os.path.expandvars("$CMT_BASE/cmt/tasks/TotalTrigger.C++"))
+        ROOT.gSystem.Load("%s" % os.path.expandvars("$CMT_BASE/cmt/tasks/./TotalTrigger_C.so"))
+        
+        run = ROOT.TotalTrigger(input_file, self.output()["root"].path, self.tree_name,
+            self.xx_range[0], self.xx_range[1], self.yy_range[0], self.yy_range[1],
+            -1, -1, self.dzz_range[0], self.dzz_range[1], 
+            -1, -1, -1
+        )
+        run.RateAsymmVBFDiJetLoop()
+
+        f = ROOT.TFile.Open(input_file)
+        tree = f.Get(self.tree_name)
+        stats = {
+            "nevents": tree.GetEntries(),
+        }
+        f.Close()
+        stats_path = self.output()["stats"].path
+        with open(create_file_dir(stats_path), "w") as json_f:
+            json.dump(stats, json_f, indent=4)
 
 
 class ComputeDiJetRate(ComputeRate):
