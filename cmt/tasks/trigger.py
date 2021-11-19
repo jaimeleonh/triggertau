@@ -25,12 +25,12 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
     zz_range = (20, 160)
 
     additional_branches = [
-        #"nTau","Tau_pt", "Tau_eta", "Tau_phi", "Tau_mass",
-        #"nJet","Jet_pt", "Jet_eta", "Jet_phi", "Jet_mass",
+        "nTau", "Tau_pt", "Tau_eta", "Tau_phi", "Tau_mass",
+        "nJet", "Jet_pt", "Jet_eta", "Jet_phi", "Jet_mass", "Jet_jetId", "Jet_puId",
         #"nGenVisTau", "GenVisTau_pt", "GenVisTau_eta", "GenVisTau_phi", "GenVisTau_mass",
         #"nTrigTau",
         #"TrigTau_pt", "TrigTau_phi", "TrigTau_eta"
-        "nL1Obj", "L1Obj_pt", "L1Obj_eta", "L1Obj_phi", "L1Obj_type",
+        "nL1Obj", "L1Obj_pt", "L1Obj_eta", "L1Obj_phi", "L1Obj_type", "L1Obj_iso",
     ]   
 
     # regions not supported
@@ -61,31 +61,16 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
     def add_to_root(self, root):
         root.gInterpreter.Declare("""
             using Vfloat = const ROOT::RVec<float>&;      
-            ROOT::RVec<ROOT::RVec<float>> lead_sublead(Vfloat pt, Vfloat eta, Vfloat phi, Vfloat mass){
-                ROOT::RVec<float> leading_pts = {-1., -1.};
-                ROOT::RVec<float> leading_etas = {-1., -1.};
-                ROOT::RVec<float> leading_phis = {-1., -1.};
-                ROOT::RVec<float> leading_mass = {-1., -1.};
-                for (size_t i = 0; i < pt.size(); i++) {
-                    if (pt[i] > leading_pts[0]){
-                        leading_pts[1] = leading_pts[0];
-                        leading_etas[1] = leading_etas[0];
-                        leading_phis[1] = leading_phis[0];
-                        leading_mass[1] = leading_mass[0];
-        
-                        leading_pts[0] = pt[i];
-                        leading_etas[0] = eta[i];
-                        leading_phis[0] = phi[i];
-                        leading_mass[0] = mass[i];
-                    } 
-                    else if (pt[i] > leading_pts[1]){
-                        leading_pts[1] = pt[i];
-                        leading_etas[1] = eta[i];
-                        leading_phis[1] = phi[i];
-                        leading_mass[1] = mass[i];
-                    }
+            ROOT::RVec<float> lead_sublead(Vfloat vec, int max){
+                ROOT::RVec<float> leading_vec;
+                for (size_t i = 0; i < max; i++) {
+                    leading_vec.push_back(-1.);
                 }
-                return ROOT::RVec({leading_pts, leading_etas, leading_phis, leading_mass});
+                for (size_t i = 0; i < vec.size(); i++) {
+                    leading_vec[i] = vec[i];
+                    if (i >= max - 1) break;
+                }
+                return leading_vec;
             }
             Double_t Phi_mpi_pi(Double_t x) {
                 while (x >= 3.14159) x -= (2 * 3.14159);
@@ -108,54 +93,88 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
                 }
                 return mask;
             }
+            // using Vint = const ROOT::RVec<int>&;   
+            // int* get_int_array(Vint vec) {
+            //    int output[256];
+            //    for (size_t i = 0; i <= vec.size(); i++) {
+            //        output[i] = vec.at(i);
+            //    }
+            //    return output;                
+            // }
+            using Vfloat = const ROOT::RVec<float>&;
+            Float_t* get_float_array(Vfloat vec) {
+                static Float_t output[256];
+                for (size_t i = 0; i <= vec.size(); i++) {
+                    output[i] = vec.at(i);
+                }
+                return output;  
+            }
         """)
         return root
 
     @classmethod
     def add_dataframe_definitions(self, df, category=None):
         # leading and subleading L1 Taus
-        df = df.Define("lead_sublead_goodl1tau_pt",
-            "lead_sublead("
-                "L1Obj_pt[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
-                "L1Obj_eta[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
-                "L1Obj_phi[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
-                "L1Obj_pt[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1]"  # dum
-            ")[0]"
-        ).Define("lead_sublead_goodl1tau_eta", 
-            "lead_sublead("
-                "L1Obj_pt[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
-                "L1Obj_eta[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
-                "L1Obj_phi[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
-                "L1Obj_pt[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1]"  # dum
-            ")[1]"
-        ).Define("lead_sublead_goodl1tau_phi", 
-            "lead_sublead("
-                "L1Obj_pt[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
-                "L1Obj_eta[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
-                "L1Obj_phi[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
-                "L1Obj_pt[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1]"  # dum
-            ")[2]")
+        # df = df.Define("lead_sublead_goodl1tau_pt",
+            # "lead_sublead("
+                # "L1Obj_pt[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
+                # "L1Obj_eta[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
+                # "L1Obj_phi[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
+                # "L1Obj_pt[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1]"  # dum
+            # ")[0]"
+        # ).Define("lead_sublead_goodl1tau_eta", 
+            # "lead_sublead("
+                # "L1Obj_pt[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
+                # "L1Obj_eta[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
+                # "L1Obj_phi[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
+                # "L1Obj_pt[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1]"  # dum
+            # ")[1]"
+        # ).Define("lead_sublead_goodl1tau_phi", 
+            # "lead_sublead("
+                # "L1Obj_pt[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
+                # "L1Obj_eta[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
+                # "L1Obj_phi[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], "
+                # "L1Obj_pt[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1]"  # dum
+            # ")[2]")
+        
+        df = df.Define(
+            "lead_sublead_goodl1tau_pt",
+                "lead_sublead(L1Obj_pt[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], 3)"
+            ).Define("lead_sublead_goodl1tau_eta",
+                "lead_sublead(L1Obj_eta[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], 3)"
+            ).Define("lead_sublead_goodl1tau_phi",
+                "lead_sublead(L1Obj_phi[L1Obj_type == 1 && L1Obj_iso == 1 && abs(L1Obj_eta) <= 2.1], 3)"
+            )
 
         # leading and subleading Reco Taus
+        # df = df.Define("lead_sublead_goodtau_pt",
+            # "lead_sublead("
+                # "Tau_pt[abs(Tau_eta) <= 2.1], "
+                # "Tau_eta[abs(Tau_eta) <= 2.1], "
+                # "Tau_phi[abs(Tau_eta) <= 2.1], "
+                # "Tau_mass[abs(Tau_eta) <= 2.1]"
+            # ")[0]").Define("lead_sublead_goodtau_eta", 
+            # "lead_sublead("
+                # "Tau_pt[abs(Tau_eta) <= 2.1], "
+                # "Tau_eta[abs(Tau_eta) <= 2.1], "
+                # "Tau_phi[abs(Tau_eta) <= 2.1], "
+                # "Tau_mass[abs(Tau_eta) <= 2.1]"
+            # ")[1]").Define("lead_sublead_goodtau_phi", 
+            # "lead_sublead("
+                # "Tau_pt[abs(Tau_eta) <= 2.1], "
+                # "Tau_eta[abs(Tau_eta) <= 2.1], "
+                # "Tau_phi[abs(Tau_eta) <= 2.1], "
+                # "Tau_mass[abs(Tau_eta) <= 2.1]"
+            # ")[2]")
+
         df = df.Define("lead_sublead_goodtau_pt",
-            "lead_sublead("
-                "Tau_pt[abs(Tau_eta) <= 2.1], "
-                "Tau_eta[abs(Tau_eta) <= 2.1], "
-                "Tau_phi[abs(Tau_eta) <= 2.1], "
-                "Tau_mass[abs(Tau_eta) <= 2.1]"
-            ")[0]").Define("lead_sublead_goodtau_eta", 
-            "lead_sublead("
-                "Tau_pt[abs(Tau_eta) <= 2.1], "
-                "Tau_eta[abs(Tau_eta) <= 2.1], "
-                "Tau_phi[abs(Tau_eta) <= 2.1], "
-                "Tau_mass[abs(Tau_eta) <= 2.1]"
-            ")[1]").Define("lead_sublead_goodtau_phi", 
-            "lead_sublead("
-                "Tau_pt[abs(Tau_eta) <= 2.1], "
-                "Tau_eta[abs(Tau_eta) <= 2.1], "
-                "Tau_phi[abs(Tau_eta) <= 2.1], "
-                "Tau_mass[abs(Tau_eta) <= 2.1]"
-            ")[2]")
+                "lead_sublead(Tau_pt[abs(Tau_eta) <= 2.1], 3)"
+            ).Define("lead_sublead_goodtau_eta",
+                "lead_sublead(Tau_eta[abs(Tau_eta) <= 2.1], 3)"
+            ).Define("lead_sublead_goodtau_phi",
+                "lead_sublead(Tau_phi[abs(Tau_eta) <= 2.1], 3)"
+            )
+            
         
         # leading and subleading L1 jets
         # restriction = (
@@ -167,6 +186,7 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
                 # "lead_sublead_goodl1tau_phi, "
                 # "0.5)"
         # )
+
         for tau_pt in range(*self.yy_range):
             restriction = (
                 "L1Obj_type == 0 "
@@ -178,26 +198,11 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
                     "0.5)".format(tau_pt)
             )
             df = df.Define("lead_sublead_goodl1jet_pt_tau_pt_%s" % tau_pt,
-                "lead_sublead("
-                    "L1Obj_pt[{0}],"
-                    "L1Obj_eta[{0}],"
-                    "L1Obj_phi[{0}],"
-                    "L1Obj_pt[{0}]"
-                ")[0]".format(restriction))
+                "lead_sublead(L1Obj_pt[{0}], 3)".format(restriction))
             df = df.Define("lead_sublead_goodl1jet_eta_tau_pt_%s" % tau_pt,
-                "lead_sublead("
-                    "L1Obj_pt[{0}],"
-                    "L1Obj_eta[{0}],"
-                    "L1Obj_phi[{0}],"
-                    "L1Obj_pt[{0}]"
-                ")[1]".format(restriction))
+                "lead_sublead(L1Obj_eta[{0}], 3)".format(restriction))
             df = df.Define("lead_sublead_goodl1jet_phi_tau_pt_%s" % tau_pt,
-                "lead_sublead("
-                    "L1Obj_pt[{0}],"
-                    "L1Obj_eta[{0}],"
-                    "L1Obj_phi[{0}],"
-                    "L1Obj_pt[{0}]"
-                ")[2]".format(restriction))
+                "lead_sublead(L1Obj_phi[{0}], 3)".format(restriction))
 
             # leading and subleading offline jets
             # restriction = (
@@ -217,29 +222,14 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
                     "Jet_phi, "
                     "Tau_eta[Tau_pt >= {0} && abs(Tau_eta) <= 2.1], "
                     "Tau_eta[Tau_pt >= {0} && abs(Tau_phi) <= 2.1], "
-                    "0.5)".format(tau_pt + category.get_aux("add_to_subleading_pt")))
+                    "0.5)".format(tau_pt + category.get_aux("add_to_subleading_pt"))
+            )
             df = df.Define("lead_sublead_goodjet_pt_tau_pt_%s" % tau_pt,
-                "lead_sublead("
-                    "Jet_pt[{0}],"
-                    "Jet_eta[{0}],"
-                    "Jet_phi[{0}],"
-                    "Jet_mass[{0}]"
-                ")[0]".format(restriction))
+                "lead_sublead(Jet_pt[{0}], 3)".format(restriction))
             df = df.Define("lead_sublead_goodjet_eta_tau_pt_%s" % tau_pt,
-                "lead_sublead("
-                    "Jet_pt[{0}],"
-                    "Jet_eta[{0}],"
-                    "Jet_phi[{0}],"
-                    "Jet_mass[{0}]"
-                ")[1]".format(restriction))
+                "lead_sublead(Jet_eta[{0}], 3)".format(restriction))
             df = df.Define("lead_sublead_goodjet_phi_tau_pt_%s" % tau_pt,
-                "lead_sublead("
-                    "Jet_pt[{0}],"
-                    "Jet_eta[{0}],"
-                    "Jet_phi[{0}],"
-                    "Jet_mass[{0}]"
-                ")[2]".format(restriction))
-
+                "lead_sublead(Jet_phi[{0}], 3)".format(restriction))
         return df
 
     def filter_jets(self, df, category=None):
@@ -317,8 +307,8 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
                     "&& maskDeltaR("
                         "L1Obj_eta, "
                         "L1Obj_phi, "
-                        "lead_sublead_goodl1tau_eta, "
-                        "lead_sublead_goodl1tau_phi, "
+                        "lead_sublead_goodl1tau_eta[lead_sublead_goodl1tau_pt >= {1}], "
+                        "lead_sublead_goodl1tau_phi[lead_sublead_goodl1tau_pt >= {1}], "
                         "0.5)"
                     "].size() >= 1)".format(yy, zz))
             branch_names.append(name)
@@ -366,12 +356,18 @@ class Skim(AddTrigger):
             "subleading_l1tau_pt",
             "subleading_l1tau_eta",
             "subleading_l1tau_phi",
+            "subsubleading_l1tau_pt",
+            "subsubleading_l1tau_eta",
+            "subsubleading_l1tau_phi",
             "leading_tau_pt",
             "leading_tau_eta",
             "leading_tau_phi",
             "subleading_tau_pt",
             "subleading_tau_eta",
             "subleading_tau_phi",
+            "subsubleading_tau_pt",
+            "subsubleading_tau_eta",
+            "subsubleading_tau_phi",
         ]
         
         for tau_pt in range(*self.yy_range):
@@ -396,6 +392,9 @@ class Skim(AddTrigger):
         df = df.Define("subleading_l1tau_pt", "lead_sublead_goodl1tau_pt[1]")
         df = df.Define("subleading_l1tau_eta", "lead_sublead_goodl1tau_eta[1]")
         df = df.Define("subleading_l1tau_phi", "lead_sublead_goodl1tau_phi[1]")
+        df = df.Define("subsubleading_l1tau_pt", "lead_sublead_goodl1tau_pt[2]")
+        df = df.Define("subsubleading_l1tau_eta", "lead_sublead_goodl1tau_eta[2]")
+        df = df.Define("subsubleading_l1tau_phi", "lead_sublead_goodl1tau_phi[2]")
 
         df = df.Define("leading_tau_pt", "lead_sublead_goodtau_pt[0]")
         df = df.Define("leading_tau_eta", "lead_sublead_goodtau_eta[0]")
@@ -403,6 +402,9 @@ class Skim(AddTrigger):
         df = df.Define("subleading_tau_pt", "lead_sublead_goodtau_pt[1]")
         df = df.Define("subleading_tau_eta", "lead_sublead_goodtau_eta[1]")
         df = df.Define("subleading_tau_phi", "lead_sublead_goodtau_phi[1]")
+        df = df.Define("subsubleading_tau_pt", "lead_sublead_goodtau_pt[2]")
+        df = df.Define("subsubleading_tau_eta", "lead_sublead_goodtau_eta[2]")
+        df = df.Define("subsubleading_tau_phi", "lead_sublead_goodtau_phi[2]")
 
         for tau_pt in range(*self.yy_range):
             df = df.Define("leading_l1jet_pt_tau_pt_%s" % tau_pt,
@@ -417,6 +419,7 @@ class Skim(AddTrigger):
                 "lead_sublead_goodl1jet_eta_tau_pt_%s[1]" % tau_pt)
             df = df.Define("subleading_l1jet_phi_tau_pt_%s" % tau_pt,
                 "lead_sublead_goodl1jet_phi_tau_pt_%s[1]" % tau_pt)
+
             df = df.Define("leading_jet_pt_tau_pt_%s" % tau_pt,
                 "lead_sublead_goodjet_pt_tau_pt_%s[0]" % tau_pt)
             df = df.Define("leading_jet_eta_tau_pt_%s" % tau_pt,
@@ -766,6 +769,115 @@ class AsymmAcceptanceWrapper(DatasetCategoryWrapperTask):
         return AsymmAcceptance.vreq(self, dataset_name=dataset.name, category_name=category.name)
 
 
+class AsymmManfredAcceptance(Acceptance):
+    xx_range = (32, 40)
+    yy_range = (20, 33)
+    zz_range = (20, 160)
+
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+
+        df = ROOT.RDataFrame(self.tree_name, input_file)
+
+        ditau_acc = df.Filter(
+            "leading_l1tau_pt >= {0} "
+            "&& subleading_l1tau_pt >= {1}"
+            "&& leading_tau_pt >= ({0} + {2}) "
+            "&& subleading_tau_pt >= ({1} + {3})"
+            "&& leading_tau_pt >= {4}"
+            "&& subleading_tau_pt >= {5}".format(
+                32,
+                32,
+                self.category.get_aux("add_to_leading_pt"),
+                self.category.get_aux("add_to_subleading_pt"),
+                self.category.get_aux("min_leading_tau_pt"),
+                self.category.get_aux("min_subleading_tau_pt")
+            )
+        ).Count()
+
+        ROOT.gSystem.Load("%s" % os.path.expandvars("$CMT_BASE/cmt/tasks/./TotalTrigger_C.so"))
+
+        run = ROOT.TotalTrigger(input_file, self.output()["root"].path, self.tree_name,
+            self.xx_range[0], self.xx_range[1], self.yy_range[0], self.yy_range[1],
+            self.zz_range[0], self.zz_range[1], -1, -1,
+            self.category.get_aux("add_to_leading_pt"),
+            self.category.get_aux("add_to_subleading_pt"),
+            self.category.get_aux("add_to_trigger_jets", 10),
+            self.category.get_aux("min_leading_tau_pt"),
+            self.category.get_aux("min_subleading_tau_pt")
+        )
+        run.AsymmManfredLoop()
+
+        f = ROOT.TFile.Open(input_file)
+        tree = f.Get(self.tree_name)
+        stats = {
+            "nevents": tree.GetEntries(),
+            "den": ditau_acc.GetValue()
+        }
+        f.Close()
+        stats_path = self.output()["stats"].path
+        with open(create_file_dir(stats_path), "w") as json_f:
+            json.dump(stats, json_f, indent=4)
+
+
+class AsymmManfredAcceptanceWrapper(DatasetCategoryWrapperTask):
+
+    def atomic_requires(self, dataset, category):
+        return AsymmManfredAcceptance.vreq(self, dataset_name=dataset.name, category_name=category.name)
+
+
+class AsymmTriTauAcceptance(Acceptance):
+    xx_range = (32, 40)
+    yy_range = (20, 33)
+    zz_range = (20, 160)
+
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+
+        df = ROOT.RDataFrame(self.tree_name, input_file)
+
+        ditau_acc = df.Filter(
+            "leading_l1tau_pt >= {0} "
+            "&& subleading_l1tau_pt >= {1}"
+            "&& leading_tau_pt >= ({0} + {2}) "
+            "&& subleading_tau_pt >= ({1} + {3})".format(
+                32,
+                32,
+                self.category.get_aux("add_to_leading_pt"),
+                self.category.get_aux("add_to_subleading_pt")
+            )
+        ).Count()
+
+        ROOT.gSystem.Load("%s" % os.path.expandvars("$CMT_BASE/cmt/tasks/./TotalTrigger_C.so"))
+
+        run = ROOT.TotalTrigger(input_file, self.output()["root"].path, self.tree_name,
+            self.xx_range[0], self.xx_range[1], self.yy_range[0], self.yy_range[1],
+            self.zz_range[0], self.zz_range[1], -1, -1,
+            self.category.get_aux("add_to_leading_pt"),
+            self.category.get_aux("add_to_subleading_pt"),
+            self.category.get_aux("add_to_trigger_jets", 10)
+        )
+        run.AsymmTriTauLoop()
+
+        f = ROOT.TFile.Open(input_file)
+        tree = f.Get(self.tree_name)
+        stats = {
+            "nevents": tree.GetEntries(),
+            "den": ditau_acc.GetValue()
+        }
+        f.Close()
+        stats_path = self.output()["stats"].path
+        with open(create_file_dir(stats_path), "w") as json_f:
+            json.dump(stats, json_f, indent=4)
+
+
+class AsymmTriTauAcceptanceWrapper(DatasetCategoryWrapperTask):
+
+    def atomic_requires(self, dataset, category):
+        return AsymmTriTauAcceptance.vreq(self,
+            dataset_name=dataset.name, category_name=category.name)
+
+
 class AsymmVBFAcceptance(Acceptance):
     xx_range = (32, 40)
     yy_range = (20, 33)
@@ -1099,8 +1211,8 @@ class AsymmKetiDiJetAcceptanceWrapper(DatasetCategoryWrapperTask):
 class ComputeRate(AddTrigger):
 
     additional_branches = [
-        'nTaus', 'tauEt', 'tauEta', 'tauPhi', 'tauIso',
-        'nJets', 'jetEt', 'jetEta', 'jetPhi'
+        'nTaus', 'tauEt', 'tauEta', 'tauPhi', 'tauIso', 'tauBx',
+        'nJets', 'jetEt', 'jetEta', 'jetPhi', 'jetBx'
     ]
     
     def __init__(self, *args, **kwargs):
@@ -1114,29 +1226,40 @@ class ComputeRate(AddTrigger):
     @classmethod
     def add_dataframe_definitions(self, df):
         # leading and subleading L1 Taus
+        # df = df.Define("lead_sublead_goodl1tau_pt",
+            # "lead_sublead("
+                # "tauEt[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
+                # "tauEta[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
+                # "tauPhi[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
+                # "tauEt[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1]"  # dum
+            # ")[0]"
+        # )
+        # df = df.Define("lead_sublead_goodl1tau_eta",
+            # "lead_sublead("
+                # "tauEt[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
+                # "tauEta[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
+                # "tauPhi[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
+                # "tauEt[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1]"  # dum
+            # ")[1]"
+        # ).Define("lead_sublead_goodl1tau_phi",
+            # "lead_sublead("
+                # "tauEt[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
+                # "tauEta[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
+                # "tauPhi[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
+                # "tauEt[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1]"  # dum
+            # ")[2]"
+        # )
         df = df.Define("lead_sublead_goodl1tau_pt",
-            "lead_sublead("
-                "tauEt[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
-                "tauEta[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
-                "tauPhi[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
-                "tauEt[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1]"  # dum
-            ")[0]"
+            "lead_sublead(tauEt[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], 3)"
         )
         df = df.Define("lead_sublead_goodl1tau_eta",
-            "lead_sublead("
-                "tauEt[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
-                "tauEta[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
-                "tauPhi[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
-                "tauEt[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1]"  # dum
-            ")[1]"
-        ).Define("lead_sublead_goodl1tau_phi",
-            "lead_sublead("
-                "tauEt[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
-                "tauEta[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
-                "tauPhi[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], "
-                "tauEt[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1]"  # dum
-            ")[2]"
+            "lead_sublead(tauEta[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], 3)"
         )
+        df = df.Define("lead_sublead_goodl1tau_phi",
+            "lead_sublead(tauPhi[tauIso == 1 && tauBx == 0 && abs(tauEta) <= 2.1], 3)"
+        )
+        
+    
         
         # restriction = (
             # "maskDeltaR("
@@ -1159,29 +1282,14 @@ class ComputeRate(AddTrigger):
             )
             
             df = df.Define("lead_sublead_goodl1jet_pt_tau_pt_%s" % tau_pt,
-                "lead_sublead("
-                    "jetEt[{0}],"
-                    "jetEta[{0}],"
-                    "jetPhi[{0}],"
-                    "jetEt[{0}]"
-                ")[0]".format(restriction))
+                "lead_sublead(jetEt[{0}], 3)".format(restriction))
 
             df = df.Define("lead_sublead_goodl1jet_eta_tau_pt_%s" % tau_pt,
-                "lead_sublead("
-                    "jetEt[{0}],"
-                    "jetEta[{0}],"
-                    "jetPhi[{0}],"
-                    "jetEt[{0}]"
-                ")[1]".format(restriction))
+                "lead_sublead(jetEta[{0}], 3)".format(restriction))
 
             df = df.Define("lead_sublead_goodl1jet_phi_tau_pt_%s" % tau_pt,
-                "lead_sublead("
-                    "jetEt[{0}],"
-                    "jetEta[{0}],"
-                    "jetPhi[{0}],"
-                    "jetEt[{0}]"
-                ")[2]".format(restriction))
-        
+                "lead_sublead(jetPhi[{0}], 3)".format(restriction))
+
         return df
 
     def get_new_dataframe(self, input_file, output_file):
@@ -1282,23 +1390,16 @@ class L1Skim(ComputeRate):
         root.gInterpreter.Declare("""
             std::map <int, std::map<int, float>> pu_lumi = %s;
         """ % dict_to_cpp)
-            # root.gInterpreter.Declare("""
-                # std::map<int, float> run_{0} = {1};
-            # """.format(key, run))
-
-            # # for value in values:
-                # # root.gInterpreter.Declare("""
-                    # # run_{0}[{1}] = {2};
-                # # """.format(key, value[0], value[1]))
-            
-            # root.gInterpreter.Declare("""
-                # pu_lumi[{0}] = run_{0};
-            # """.format(key))
             
         root.gInterpreter.Declare("""
             float compute_weight(int run, int ls) {
                 if (pu_lumi[run][ls] == 0) return 0; 
                 else return 1./pu_lumi[run][ls];
+            }
+            
+            float compute_mc_weight(int pu) {
+                if (pu == 0) return 0; 
+                else return 1./pu;
             }
         """)
         return root
@@ -1334,6 +1435,9 @@ class L1Skim(ComputeRate):
             "subleading_l1tau_pt",
             "subleading_l1tau_eta",
             "subleading_l1tau_phi",
+            "subsubleading_l1tau_pt",
+            "subsubleading_l1tau_eta",
+            "subsubleading_l1tau_phi",
             "weight"
         ]
         
@@ -1353,6 +1457,9 @@ class L1Skim(ComputeRate):
         df = df.Define("subleading_l1tau_pt", "lead_sublead_goodl1tau_pt[1]")
         df = df.Define("subleading_l1tau_eta", "lead_sublead_goodl1tau_eta[1]")
         df = df.Define("subleading_l1tau_phi", "lead_sublead_goodl1tau_phi[1]")
+        df = df.Define("subsubleading_l1tau_pt", "lead_sublead_goodl1tau_pt[2]")
+        df = df.Define("subsubleading_l1tau_eta", "lead_sublead_goodl1tau_eta[2]")
+        df = df.Define("subsubleading_l1tau_phi", "lead_sublead_goodl1tau_phi[2]")
         for tau_pt in range(*self.yy_range):
             df = df.Define("leading_l1jet_pt_tau_pt_%s" % tau_pt,
                 "lead_sublead_goodl1jet_pt_tau_pt_%s[0]" % tau_pt)
@@ -1369,8 +1476,26 @@ class L1Skim(ComputeRate):
         # df = df.Define("run", "event.run")
         # df = df.Define("ls", "event.lumi")
         
-        df = df.Define("weight", "compute_weight(event.run, event.lumi)")
+        
+        if self.dataset.isMC: 
+            df = df.Define("weight", "compute_mc_weight(event.nPV_True)")
+        else:
+            df = df.Define("weight", "compute_weight(event.run, event.lumi)")
         df = df.Define("eventnumber", "event.event")
+        
+        
+        # tau_restr = "tauEt >= 20 && abs(tauEta) <= 2.1 && tauIso == 1 && tauBx == 0"
+        # df = df.Define("l1_tau_pt", "get_float_array(tauEt[%s])" % tau_restr)
+        # df = df.Define("l1_tau_eta", "get_float_array(tauEta[%s])" % tau_restr)
+        # df = df.Define("l1_tau_phi", "get_float_array(tauPhi[%s])" % tau_restr)
+        # jet_restr = "jetEt >= 20 && jetBx == 0"
+        # df = df.Define("l1_jet_pt", "get_float_array(jetEt[%s])" % jet_restr)
+        # df = df.Define("l1_jet_eta", "get_float_array(jetEta[%s])" % jet_restr)
+        # df = df.Define("l1_jet_phi", "get_float_array(jetPhi[%s])" % jet_restr)
+        # branch_names += [
+            # "l1_tau_pt", #"l1_tau_eta", "l1_tau_phi",
+            # "l1_jet_pt", "l1_jet_eta", "l1_jet_phi", 
+        # ]
 
         branch_list = ROOT.vector('string')()
         for branch_name in self.additional_branches + branch_names:
@@ -1542,6 +1667,37 @@ class AsymmRate(Rate):
             json.dump(stats, json_f, indent=4)
 
 
+class AsymmTriTauRate(Rate):
+
+    xx_range = (32, 40)
+    yy_range = (20, 33)
+    zz_range = (20, 160)
+
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+
+        #ROOT.gROOT.ProcessLine(
+        #    ".L %s " % os.path.expandvars("$CMT_BASE/cmt/tasks/TotalTrigger.C++"))
+        ROOT.gSystem.Load("%s" % os.path.expandvars("$CMT_BASE/cmt/tasks/./TotalTrigger_C.so"))
+        
+        run = ROOT.TotalTrigger(input_file, self.output()["root"].path, self.tree_name,
+            self.xx_range[0], self.xx_range[1], self.yy_range[0], self.yy_range[1],
+            self.zz_range[0], self.zz_range[1], -1, -1,
+            -1, -1, -1
+        )
+        run.RateAsymmTriTauLoop()
+
+        f = ROOT.TFile.Open(input_file)
+        tree = f.Get(self.tree_name)
+        stats = {
+            "nevents": tree.GetEntries(),
+        }
+        f.Close()
+        stats_path = self.output()["stats"].path
+        with open(create_file_dir(stats_path), "w") as json_f:
+            json.dump(stats, json_f, indent=4)
+
+
 class AsymmVBFRate(Rate):
 
     xx_range = (32, 40)
@@ -1635,6 +1791,37 @@ class AsymmVBFDiJetRate(Rate):
             -1, -1, -1
         )
         run.RateAsymmVBFDiJetLoop()
+
+        f = ROOT.TFile.Open(input_file)
+        tree = f.Get(self.tree_name)
+        stats = {
+            "nevents": tree.GetEntries(),
+        }
+        f.Close()
+        stats_path = self.output()["stats"].path
+        with open(create_file_dir(stats_path), "w") as json_f:
+            json.dump(stats, json_f, indent=4)
+
+
+class AsymmManfredRate(AsymmRate):
+
+    xx_range = (32, 40)
+    yy_range = (20, 33)
+    zz_range = (20, 160)
+
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+
+        #ROOT.gROOT.ProcessLine(
+        #    ".L %s " % os.path.expandvars("$CMT_BASE/cmt/tasks/TotalTrigger.C++"))
+        ROOT.gSystem.Load("%s" % os.path.expandvars("$CMT_BASE/cmt/tasks/./TotalTrigger_C.so"))
+        
+        run = ROOT.TotalTrigger(input_file, self.output()["root"].path, self.tree_name,
+            self.xx_range[0], self.xx_range[1], self.yy_range[0], self.yy_range[1],
+            self.zz_range[0], self.zz_range[1], -1, -1,
+            -1, -1, -1
+        )
+        run.RateAsymmManfredLoop()
 
         f = ROOT.TFile.Open(input_file)
         tree = f.Get(self.tree_name)

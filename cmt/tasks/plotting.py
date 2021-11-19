@@ -1,5 +1,6 @@
 # coding: utf-8
 
+import os
 import law
 import luigi
 import json
@@ -17,7 +18,7 @@ from cmt.base_tasks.base import (
     ConfigTask, ConfigTaskWithCategory, 
 )
 from cmt.tasks.trigger import (
-    AddTrigger, AddOffline, ComputeRate, ComputeAsymRate, DiTauRate, AsymmAcceptance, AsymmRate
+    AddTrigger, AddOffline, ComputeRate, ComputeAsymRate, DiTauRate, AsymmAcceptance, AsymmRate, Skim
 )
 
 
@@ -26,9 +27,6 @@ class PlotAcceptance(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflo
     xx_range = law.CSVParameter(default=("32", "33"))
     yy_range = (20, 33)
     zz_range = (20, 160)
-    #xx_range = (20, 21)
-    #yy_range = (20, 21)
-    #zz_range = (20, 21)
 
     # regions not supported
     region_name = None
