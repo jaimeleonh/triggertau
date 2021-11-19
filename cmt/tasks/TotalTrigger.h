@@ -44,16 +44,16 @@
 
         // L1 objects from L1Ntuples
         UShort_t        nTaus;
-	    std::vector<float>         *tauEt;
-	    std::vector<float>         *tauEta;
-	    std::vector<float>         *tauPhi;
-	    std::vector<short>   	   *tauIso;
-	    std::vector<short>   	   *tauBx;
-	    UShort_t        nJets;
-	    std::vector<float>         *jetEt;
-	    std::vector<float>		   *jetEta;
-	    std::vector<float>   	   *jetPhi;
-	    std::vector<short>   	   *jetBx;
+        std::vector<float>         *tauEt;
+        std::vector<float>         *tauEta;
+        std::vector<float>         *tauPhi;
+        std::vector<short>         *tauIso;
+        std::vector<short>         *tauBx;
+        UShort_t        nJets;
+        std::vector<float>         *jetEt;
+        std::vector<float>         *jetEta;
+        std::vector<float>         *jetPhi;
+        std::vector<short>         *jetBx;
 
         UInt_t          nJet;
         Float_t         Jet_pt[24];
@@ -351,7 +351,7 @@
             int miny, int maxy,
             int minz, int maxz,
             int mindz, int maxdz,
-			int add_to_leading_tau, int add_to_subleading_tau, int add_to_jet,
+            int add_to_leading_tau, int add_to_subleading_tau, int add_to_jet,
             int min_leading_tau_pt, int min_subleading_tau_pt);
         virtual ~TotalTrigger();
         virtual Int_t    Cut(Long64_t entry);
@@ -462,15 +462,15 @@
         fCurrent = -1;
         fChain->SetMakeClass(1);
 
-		tauEt = 0;
-		tauEta = 0;
-		tauPhi = 0;
-		tauIso = 0;
-		tauBx = 0;
-		jetEt = 0;
-		jetEta = 0;
-		jetPhi = 0;
-		jetBx = 0;
+        tauEt = 0;
+        tauEta = 0;
+        tauPhi = 0;
+        tauIso = 0;
+        tauBx = 0;
+        jetEt = 0;
+        jetEta = 0;
+        jetPhi = 0;
+        jetBx = 0;
         
         if (fChain->GetListOfBranches()->FindObject("nL1Obj"))
             fChain->SetBranchAddress("nL1Obj", &nL1Obj, &b_nL1Obj);
@@ -485,27 +485,27 @@
         if (fChain->GetListOfBranches()->FindObject("L1Obj_iso"))
             fChain->SetBranchAddress("L1Obj_iso", L1Obj_iso, &b_L1Obj_iso);
         if (fChain->GetListOfBranches()->FindObject("nTaus"))
-			fChain->SetBranchAddress("nTaus", &nTaus, &b_nTaus);
+            fChain->SetBranchAddress("nTaus", &nTaus, &b_nTaus);
         if (fChain->GetListOfBranches()->FindObject("tauEt"))
-			fChain->SetBranchAddress("tauEt", &tauEt, &b_tauEt);
+            fChain->SetBranchAddress("tauEt", &tauEt, &b_tauEt);
         if (fChain->GetListOfBranches()->FindObject("tauEta"))
-			fChain->SetBranchAddress("tauEta", &tauEta, &b_tauEta);
-		if (fChain->GetListOfBranches()->FindObject("tauPhi"))
-			fChain->SetBranchAddress("tauPhi", &tauPhi, &b_tauPhi);
-		if (fChain->GetListOfBranches()->FindObject("tauIso"))
-			fChain->SetBranchAddress("tauIso", &tauIso, &b_tauIso);
-		if (fChain->GetListOfBranches()->FindObject("tauBx"))
-			fChain->SetBranchAddress("tauBx", &tauBx, &b_tauBx);
-		if (fChain->GetListOfBranches()->FindObject("nJets"))
-			fChain->SetBranchAddress("nJets", &nJets, &b_nJets);
+            fChain->SetBranchAddress("tauEta", &tauEta, &b_tauEta);
+        if (fChain->GetListOfBranches()->FindObject("tauPhi"))
+            fChain->SetBranchAddress("tauPhi", &tauPhi, &b_tauPhi);
+        if (fChain->GetListOfBranches()->FindObject("tauIso"))
+            fChain->SetBranchAddress("tauIso", &tauIso, &b_tauIso);
+        if (fChain->GetListOfBranches()->FindObject("tauBx"))
+            fChain->SetBranchAddress("tauBx", &tauBx, &b_tauBx);
+        if (fChain->GetListOfBranches()->FindObject("nJets"))
+            fChain->SetBranchAddress("nJets", &nJets, &b_nJets);
         if (fChain->GetListOfBranches()->FindObject("jetEt"))
-			fChain->SetBranchAddress("jetEt", &jetEt, &b_jetEt);
+            fChain->SetBranchAddress("jetEt", &jetEt, &b_jetEt);
         if (fChain->GetListOfBranches()->FindObject("jetEta"))
-			fChain->SetBranchAddress("jetEta", &jetEta, &b_jetEta);
-		if (fChain->GetListOfBranches()->FindObject("jetPhi"))
-			fChain->SetBranchAddress("jetPhi", &jetPhi, &b_jetPhi);
-		if (fChain->GetListOfBranches()->FindObject("jetBx"))
-			fChain->SetBranchAddress("jetBx", &jetBx, &b_jetBx);	
+            fChain->SetBranchAddress("jetEta", &jetEta, &b_jetEta);
+        if (fChain->GetListOfBranches()->FindObject("jetPhi"))
+            fChain->SetBranchAddress("jetPhi", &jetPhi, &b_jetPhi);
+        if (fChain->GetListOfBranches()->FindObject("jetBx"))
+            fChain->SetBranchAddress("jetBx", &jetBx, &b_jetBx);    
         
         if (fChain->GetListOfBranches()->FindObject("nTau"))
             fChain->SetBranchAddress("nTau", &nTau, &b_nTau);

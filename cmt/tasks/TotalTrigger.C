@@ -37,7 +37,7 @@ void TotalTrigger::TotalLoop()
             }
         }
     }
-    
+
     for (Long64_t jentry=0; jentry<nentries;jentry++) {                   
         Long64_t ientry = LoadTree(jentry);
         if (ientry < 0) break;
@@ -1104,7 +1104,7 @@ void TotalTrigger::RateAsymmManfredLoop()
     Long64_t nentries = fChain->GetEntriesFast();
     Long64_t nbytes = 0, nb = 0;
 
-	int nx = maxx - minx;
+    int nx = maxx - minx;
     int ny = maxy - miny;
     int nz = maxz - minz;
     
@@ -1121,7 +1121,7 @@ void TotalTrigger::RateAsymmManfredLoop()
             }
         }
     }
-	//std::cout << nTaus << std::endl;
+    //std::cout << nTaus << std::endl;
     for (Long64_t jentry=0; jentry<nentries; jentry++) {                   
         Long64_t ientry = LoadTree(jentry);
         if (ientry < 0) break;
@@ -1130,90 +1130,90 @@ void TotalTrigger::RateAsymmManfredLoop()
         std::vector <float> L1tau_pt, L1tau_eta, L1tau_phi;
         std::vector <float> L1jet_pt, L1jet_eta, L1jet_phi;
         for (UShort_t iL1Obj = 0; iL1Obj < nTaus; iL1Obj++) {
-			// L1 taus
-			//std::cout << tauEt->at(iL1Obj) << " " << tauIso->at(iL1Obj) << " " << fabs(tauEta->at(iL1Obj)) << " ";
+            // L1 taus
+            //std::cout << tauEt->at(iL1Obj) << " " << tauIso->at(iL1Obj) << " " << fabs(tauEta->at(iL1Obj)) << " ";
             if (tauEt->at(iL1Obj) >= miny && tauIso->at(iL1Obj) == 1 && abs(tauEta->at(iL1Obj)) <= 2.1 && tauBx->at(iL1Obj) == 0) {
             //if (tauEt->at(iL1Obj) >= miny && tauIso->at(iL1Obj) == 1 && abs(tauEta->at(iL1Obj)) <= 2.1) {
-				//std::cout << "IN!";
-				L1tau_pt.push_back(tauEt->at(iL1Obj));
+                //std::cout << "IN!";
+                L1tau_pt.push_back(tauEt->at(iL1Obj));
                 L1tau_eta.push_back(tauEta->at(iL1Obj));
                 L1tau_phi.push_back(tauPhi->at(iL1Obj));
-			}
-			//std::cout << std::endl;
-		}
-		for (UShort_t iL1Obj = 0; iL1Obj < nJets; iL1Obj++) {
-			// L1 jets
+            }
+            //std::cout << std::endl;
+        }
+        for (UShort_t iL1Obj = 0; iL1Obj < nJets; iL1Obj++) {
+            // L1 jets
             if (jetEt->at(iL1Obj) >= minz && jetBx->at(iL1Obj) == 0) {
             //if (jetEt->at(iL1Obj) >= minz) {
-				L1jet_pt.push_back(jetEt->at(iL1Obj));
+                L1jet_pt.push_back(jetEt->at(iL1Obj));
                 L1jet_eta.push_back(jetEta->at(iL1Obj));
                 L1jet_phi.push_back(jetPhi->at(iL1Obj));
-			}
+            }
         }
         
 
         
         // Avoid looping if we have less than 2 L1 and offline taus or less than 1 L1 and offline jet
         if (L1tau_pt.size() < 2 || L1jet_pt.size() < 1)
-			continue;
+            continue;
         
         Float_t leading_l1tau_pt_ = L1tau_pt[0];
         Float_t subleading_l1tau_pt_ = L1tau_pt[1];
         
         // build triplets (l1tau, l1tau, l1jet_or)
         std::vector <std::vector<float>> l1_triplets;
-		for (size_t iLeadL1tau = 0; iLeadL1tau < L1tau_pt.size(); iLeadL1tau++) {
-			for (size_t iSubleadL1tau = iLeadL1tau + 1; iSubleadL1tau < L1tau_pt.size(); iSubleadL1tau++) {
-				for (size_t iLeadL1jet = 0; iLeadL1jet < L1jet_pt.size(); iLeadL1jet++) {
-					
-					Double_t deta_lead = L1jet_eta[iLeadL1jet] - L1tau_eta[iLeadL1tau];
-					Double_t dphi_lead = Phi_mpi_pi(L1jet_phi[iLeadL1jet] - L1tau_phi[iLeadL1tau]);
-					Double_t dr_lead = TMath::Sqrt(deta_lead * deta_lead + dphi_lead * dphi_lead);
-					
-					Double_t deta_sublead = L1jet_eta[iLeadL1jet] - L1tau_eta[iSubleadL1tau];
-					Double_t dphi_sublead = Phi_mpi_pi(L1jet_phi[iLeadL1jet] - L1tau_phi[iSubleadL1tau]);
-					Double_t dr_sublead = TMath::Sqrt(deta_sublead * deta_sublead + dphi_sublead * dphi_sublead);
-					
-					if (dr_lead < 0.5 || dr_sublead < 0.5) continue;
-					l1_triplets.push_back(std::vector<float>({L1tau_pt[iLeadL1tau], L1tau_pt[iSubleadL1tau], L1jet_pt[iLeadL1jet]}));				
-					break;
-				}
-			}
-		}
-		
-		//if (l1_triplets.size() > 0) {
-			//std::cout << "************" << std::endl;
-			//for (auto triplet: l1_triplets) {
-				//std::cout << triplet[0] << " " << triplet[1] << " " << triplet[2] << std::endl;
-			//}
-		//}
+        for (size_t iLeadL1tau = 0; iLeadL1tau < L1tau_pt.size(); iLeadL1tau++) {
+            for (size_t iSubleadL1tau = iLeadL1tau + 1; iSubleadL1tau < L1tau_pt.size(); iSubleadL1tau++) {
+                for (size_t iLeadL1jet = 0; iLeadL1jet < L1jet_pt.size(); iLeadL1jet++) {
+                    
+                    Double_t deta_lead = L1jet_eta[iLeadL1jet] - L1tau_eta[iLeadL1tau];
+                    Double_t dphi_lead = Phi_mpi_pi(L1jet_phi[iLeadL1jet] - L1tau_phi[iLeadL1tau]);
+                    Double_t dr_lead = TMath::Sqrt(deta_lead * deta_lead + dphi_lead * dphi_lead);
+                    
+                    Double_t deta_sublead = L1jet_eta[iLeadL1jet] - L1tau_eta[iSubleadL1tau];
+                    Double_t dphi_sublead = Phi_mpi_pi(L1jet_phi[iLeadL1jet] - L1tau_phi[iSubleadL1tau]);
+                    Double_t dr_sublead = TMath::Sqrt(deta_sublead * deta_sublead + dphi_sublead * dphi_sublead);
+                    
+                    if (dr_lead < 0.5 || dr_sublead < 0.5) continue;
+                    l1_triplets.push_back(std::vector<float>({L1tau_pt[iLeadL1tau], L1tau_pt[iSubleadL1tau], L1jet_pt[iLeadL1jet]}));               
+                    break;
+                }
+            }
+        }
+        
+        //if (l1_triplets.size() > 0) {
+            //std::cout << "************" << std::endl;
+            //for (auto triplet: l1_triplets) {
+                //std::cout << triplet[0] << " " << triplet[1] << " " << triplet[2] << std::endl;
+            //}
+        //}
 
-		int index = -1;
+        int index = -1;
         for (int x = 0; x < nx; x++) {
             for (int xp = 0; xp < x + 1; xp++) {
-				for (int y = 0; y < ny; y++) {
-					for (int yp = 0; yp < y + 1; yp++) {
-						index++;
-						for (int z = 0; z < nz; z++) {
-							if (leading_l1tau_pt_ >= minx + x &&
-									subleading_l1tau_pt_ >= minx + xp) {
-								histos.at(index)->Fill(minz + z, weight);
-							} else {
-								bool pass_l1_ditaujet = false;
-								for (auto triplet: l1_triplets) {
-									if (triplet[0] >=  miny + y
-											&& triplet[1] >=  miny + yp
-											&& triplet[2] >=  minz + z) {
-										pass_l1_ditaujet = true;
-										break;
-									}
-								}								
-								if (pass_l1_ditaujet)
-									histos.at(index)->Fill(minz + z, weight);
-							}
-						} //z
-					} //yp
-				} //y
+                for (int y = 0; y < ny; y++) {
+                    for (int yp = 0; yp < y + 1; yp++) {
+                        index++;
+                        for (int z = 0; z < nz; z++) {
+                            if (leading_l1tau_pt_ >= minx + x &&
+                                    subleading_l1tau_pt_ >= minx + xp) {
+                                histos.at(index)->Fill(minz + z, weight);
+                            } else {
+                                bool pass_l1_ditaujet = false;
+                                for (auto triplet: l1_triplets) {
+                                    if (triplet[0] >=  miny + y
+                                            && triplet[1] >=  miny + yp
+                                            && triplet[2] >=  minz + z) {
+                                        pass_l1_ditaujet = true;
+                                        break;
+                                    }
+                                }                               
+                                if (pass_l1_ditaujet)
+                                    histos.at(index)->Fill(minz + z, weight);
+                            }
+                        } //z
+                    } //yp
+                } //y
             } //xp
         } //x
         
@@ -1300,7 +1300,7 @@ void TotalTrigger::AsymmManfredLoop()
     Long64_t nentries = fChain->GetEntriesFast();
     Long64_t nbytes = 0, nb = 0;
 
-	int nx = maxx - minx;
+    int nx = maxx - minx;
     int ny = maxy - miny;
     int nz = maxz - minz;
     
@@ -1331,51 +1331,51 @@ void TotalTrigger::AsymmManfredLoop()
         std::vector <float> jet_pt, jet_eta, jet_phi;
 
         for (size_t iL1Obj = 0; iL1Obj < nL1Obj; iL1Obj++) {
-			// L1 taus
+            // L1 taus
             if (L1Obj_pt[iL1Obj] >= miny && L1Obj_iso[iL1Obj] == 1 && L1Obj_type[iL1Obj] == 1 && fabs(L1Obj_eta[iL1Obj]) <= 2.1) {
                 L1tau_pt.push_back(L1Obj_pt[iL1Obj]);
                 L1tau_eta.push_back(L1Obj_eta[iL1Obj]);
                 L1tau_phi.push_back(L1Obj_phi[iL1Obj]);
                 //std::cout << "L1Tau " << L1Obj_pt[iL1Obj] << " " << L1Obj_eta[iL1Obj] << " " << L1Obj_phi[iL1Obj] << std::endl;
-			// L1 jets
+            // L1 jets
             } else if (L1Obj_pt[iL1Obj] >= minz && L1Obj_type[iL1Obj] == 0) {
-				L1jet_pt.push_back(L1Obj_pt[iL1Obj]);
+                L1jet_pt.push_back(L1Obj_pt[iL1Obj]);
                 L1jet_eta.push_back(L1Obj_eta[iL1Obj]);
                 L1jet_phi.push_back(L1Obj_phi[iL1Obj]);
                 //std::cout << "L1Jet " << L1Obj_pt[iL1Obj] << " " << L1Obj_eta[iL1Obj] << " " << L1Obj_phi[iL1Obj] << std::endl;
-			}
+            }
         }
         
         for (size_t iTau = 0; iTau < nTau; iTau++) {
             //std::cout << "Tau " << Tau_pt[iTau] << " " << Tau_eta[iTau] << " " << Tau_phi[iTau] << std::endl;
             if (fabs(Tau_eta[iTau]) < 2.1) {
-				tau_pt.push_back(Tau_pt[iTau]);
+                tau_pt.push_back(Tau_pt[iTau]);
                 tau_eta.push_back(Tau_eta[iTau]);
                 tau_phi.push_back(Tau_phi[iTau]);
                 //std::cout << "Tau " << Tau_pt[iTau] << " " << Tau_eta[iTau] << " " << Tau_phi[iTau] << std::endl;
-			}
+            }
         }
         
 
         for (size_t iJet = 0; iJet < nJet; iJet++) {
             // std::cout << iJet << " " << (fabs(Jet_eta[iJet]) <= 4.7) << " " <<  (Jet_jetId[iJet] >= 2) << " " << Jet_puId[iJet] << " " << Jet_pt[iJet] <<   std::endl;
             if (fabs(Jet_eta[iJet]) <= 4.7 && Jet_jetId[iJet] >= 2
-					&& ((Jet_puId[iJet] >= 4 && Jet_pt[iJet] <= 50) || (Jet_pt[iJet] > 50))) {
-				jet_pt.push_back(Jet_pt[iJet]);
+                    && ((Jet_puId[iJet] >= 4 && Jet_pt[iJet] <= 50) || (Jet_pt[iJet] > 50))) {
+                jet_pt.push_back(Jet_pt[iJet]);
                 jet_eta.push_back(Jet_eta[iJet]);
                 jet_phi.push_back(Jet_phi[iJet]);
                 //std::cout << "Jet " << Jet_pt[iJet] << " " << Jet_eta[iJet] << " " << Jet_phi[iJet] << std::endl;
-			}
+            }
         }
         
         // Avoid looping if we have less than 2 L1 and offline taus or less than 1 L1 and offline jet
         // std::cout << L1tau_pt.size() << " " << tau_pt.size() << " " << L1jet_pt.size() << " " << jet_pt.size() << std::endl;
         if (L1tau_pt.size() < 2 || tau_pt.size() < 2 || L1jet_pt.size() < 1 || jet_pt.size() < 1)
-			continue;
+            continue;
         
         Float_t leading_l1tau_pt_ = L1tau_pt[0];
         Float_t subleading_l1tau_pt_ = L1tau_pt[1];
-		Float_t leading_tau_pt_ = tau_pt[0];
+        Float_t leading_tau_pt_ = tau_pt[0];
         Float_t subleading_tau_pt_ = tau_pt[1];
         
         if (leading_tau_pt_ < min_leading_tau_pt || subleading_tau_pt_ < min_subleading_tau_pt)
@@ -1384,48 +1384,48 @@ void TotalTrigger::AsymmManfredLoop()
         // build triplets (l1tau, l1tau, l1jet_or)
         // std::cout << "Looping" << std::endl;
         std::vector <std::vector<float>> l1_triplets;
-		for (size_t iLeadL1tau = 0; iLeadL1tau < L1tau_pt.size() - 1; iLeadL1tau++) {
-			for (size_t iSubleadL1tau = iLeadL1tau + 1; iSubleadL1tau < L1tau_pt.size(); iSubleadL1tau++) {
-				for (size_t iLeadL1jet = 0; iLeadL1jet < L1jet_pt.size(); iLeadL1jet++) {
-					
-					Double_t deta_lead = L1jet_eta[iLeadL1jet] - L1tau_eta[iLeadL1tau];
-					Double_t dphi_lead = Phi_mpi_pi(L1jet_phi[iLeadL1jet] - L1tau_phi[iLeadL1tau]);
-					Double_t dr_lead = TMath::Sqrt(deta_lead * deta_lead + dphi_lead * dphi_lead);
-					
-					Double_t deta_sublead = L1jet_eta[iLeadL1jet] - L1tau_eta[iSubleadL1tau];
-					Double_t dphi_sublead = Phi_mpi_pi(L1jet_phi[iLeadL1jet] - L1tau_phi[iSubleadL1tau]);
-					Double_t dr_sublead = TMath::Sqrt(deta_sublead * deta_sublead + dphi_sublead * dphi_sublead);
-					
-					if (dr_lead < 0.5 || dr_sublead < 0.5) continue;
+        for (size_t iLeadL1tau = 0; iLeadL1tau < L1tau_pt.size() - 1; iLeadL1tau++) {
+            for (size_t iSubleadL1tau = iLeadL1tau + 1; iSubleadL1tau < L1tau_pt.size(); iSubleadL1tau++) {
+                for (size_t iLeadL1jet = 0; iLeadL1jet < L1jet_pt.size(); iLeadL1jet++) {
+                    
+                    Double_t deta_lead = L1jet_eta[iLeadL1jet] - L1tau_eta[iLeadL1tau];
+                    Double_t dphi_lead = Phi_mpi_pi(L1jet_phi[iLeadL1jet] - L1tau_phi[iLeadL1tau]);
+                    Double_t dr_lead = TMath::Sqrt(deta_lead * deta_lead + dphi_lead * dphi_lead);
+                    
+                    Double_t deta_sublead = L1jet_eta[iLeadL1jet] - L1tau_eta[iSubleadL1tau];
+                    Double_t dphi_sublead = Phi_mpi_pi(L1jet_phi[iLeadL1jet] - L1tau_phi[iSubleadL1tau]);
+                    Double_t dr_sublead = TMath::Sqrt(deta_sublead * deta_sublead + dphi_sublead * dphi_sublead);
+                    
+                    if (dr_lead < 0.5 || dr_sublead < 0.5) continue;
                     //std::cout << "Pushing back L1 triplet " << L1tau_pt[iLeadL1tau] << " " << L1tau_pt[iSubleadL1tau] << " " << L1jet_pt[iLeadL1jet] << std::endl;
-					l1_triplets.push_back(std::vector<float>({L1tau_pt[iLeadL1tau], L1tau_pt[iSubleadL1tau], L1jet_pt[iLeadL1jet]}));				
-					break;
-				}
-			}
-		}
-		// build triplets (tau, tau, jet_or)
-		std::vector <std::vector<float>> off_triplets;
-		for (size_t iLeadtau = 0; iLeadtau < tau_pt.size() - 1; iLeadtau++) {
-			for (size_t iSubleadtau = iLeadtau + 1; iSubleadtau < tau_pt.size(); iSubleadtau++) {
-				for (size_t iLeadjet = 0; iLeadjet < jet_pt.size(); iLeadjet++) {
-					Double_t deta_lead = jet_eta[iLeadjet] - tau_eta[iLeadtau];
-					Double_t dphi_lead = Phi_mpi_pi(jet_phi[iLeadjet] - tau_phi[iLeadtau]);
-					Double_t dr_lead = TMath::Sqrt(deta_lead * deta_lead + dphi_lead * dphi_lead);
-					
-					Double_t deta_sublead = jet_eta[iLeadjet] - tau_eta[iSubleadtau];
-					Double_t dphi_sublead = Phi_mpi_pi(jet_phi[iLeadjet] - tau_phi[iSubleadtau]);
-					Double_t dr_sublead = TMath::Sqrt(deta_sublead * deta_sublead + dphi_sublead * dphi_sublead);
+                    l1_triplets.push_back(std::vector<float>({L1tau_pt[iLeadL1tau], L1tau_pt[iSubleadL1tau], L1jet_pt[iLeadL1jet]}));               
+                    break;
+                }
+            }
+        }
+        // build triplets (tau, tau, jet_or)
+        std::vector <std::vector<float>> off_triplets;
+        for (size_t iLeadtau = 0; iLeadtau < tau_pt.size() - 1; iLeadtau++) {
+            for (size_t iSubleadtau = iLeadtau + 1; iSubleadtau < tau_pt.size(); iSubleadtau++) {
+                for (size_t iLeadjet = 0; iLeadjet < jet_pt.size(); iLeadjet++) {
+                    Double_t deta_lead = jet_eta[iLeadjet] - tau_eta[iLeadtau];
+                    Double_t dphi_lead = Phi_mpi_pi(jet_phi[iLeadjet] - tau_phi[iLeadtau]);
+                    Double_t dr_lead = TMath::Sqrt(deta_lead * deta_lead + dphi_lead * dphi_lead);
+                    
+                    Double_t deta_sublead = jet_eta[iLeadjet] - tau_eta[iSubleadtau];
+                    Double_t dphi_sublead = Phi_mpi_pi(jet_phi[iLeadjet] - tau_phi[iSubleadtau]);
+                    Double_t dr_sublead = TMath::Sqrt(deta_sublead * deta_sublead + dphi_sublead * dphi_sublead);
                     
                     //std::cout << jet_pt[iLeadjet] << " " << dr_lead << " " << dr_sublead << std::endl;
-					
-					if (dr_lead < 0.5 || dr_sublead < 0.5) continue;
+                    
+                    if (dr_lead < 0.5 || dr_sublead < 0.5) continue;
                     //std::cout << "Pushing back Off triplet " << tau_pt[iLeadtau] << " " << tau_pt[iSubleadtau] << " " << jet_pt[iLeadjet] << std::endl;
-					off_triplets.push_back(std::vector<float>({tau_pt[iLeadtau], tau_pt[iSubleadtau], jet_pt[iLeadjet]}));				
-					break;
-				}
-				
-			}
-		}
+                    off_triplets.push_back(std::vector<float>({tau_pt[iLeadtau], tau_pt[iSubleadtau], jet_pt[iLeadjet]}));              
+                    break;
+                }
+                
+            }
+        }
         
         //std::cout << "*** PREVIOUS CODE ***" << std::endl;
         //std::cout << "L1tau " << leading_l1tau_pt << " " << leading_l1tau_eta << " " << leading_l1tau_phi << std::endl;
@@ -1435,48 +1435,48 @@ void TotalTrigger::AsymmManfredLoop()
         //std::cout << "tau " << subleading_tau_pt << " " << subleading_tau_eta << " " << subleading_tau_phi << std::endl;
         //std::cout << "jet " << leading_jet_pt_map[20] << " " << leading_jet_eta_map[20] << " " << leading_jet_phi_map[20] << std::endl;
 
-		int index = -1;
+        int index = -1;
         for (int x = 0; x < nx; x++) {
             for (int xp = 0; xp < x + 1; xp++) {
-				for (int y = 0; y < ny; y++) {
-					for (int yp = 0; yp < y + 1; yp++) {
-						index++;
-						for (int z = 0; z < nz; z++) {
+                for (int y = 0; y < ny; y++) {
+                    for (int yp = 0; yp < y + 1; yp++) {
+                        index++;
+                        for (int z = 0; z < nz; z++) {
                             //std::cout << minx + x << " " << minx + xp << " " << miny+ y << " " << miny + yp << " " << minz + z << std::endl;
-							if (leading_l1tau_pt_ >= minx + x &&
-									subleading_l1tau_pt_ >= minx + xp &&
-									leading_tau_pt_ >= minx + x + add_to_leading_tau &&
-									subleading_tau_pt_ >= minx + xp + add_to_subleading_tau) {
+                            if (leading_l1tau_pt_ >= minx + x &&
+                                    subleading_l1tau_pt_ >= minx + xp &&
+                                    leading_tau_pt_ >= minx + x + add_to_leading_tau &&
+                                    subleading_tau_pt_ >= minx + xp + add_to_subleading_tau) {
                                 //std::cout << "Pass ditau" << std::endl;
-								histos.at(index)->Fill(minz + z);
-							} else {
-								bool pass_l1_ditaujet = false;
-								for (auto triplet: l1_triplets) {
-									if (triplet[0] >=  miny + y
-											&& triplet[1] >=  miny + yp
-											&& triplet[2] >=  minz + z) {
-										pass_l1_ditaujet = true;
-										break;
-									}
-								}
-								bool pass_ditaujet = false;
-								for (auto triplet: off_triplets) {
-									if (triplet[0] >=  miny + y + add_to_leading_tau
-											&& triplet[1] >=  miny + yp + add_to_subleading_tau
-											&& triplet[2] >=  minz + z + add_to_jet) {
-										pass_ditaujet = true;
-										break;
-									}
-								}
-								
-								if (pass_l1_ditaujet && pass_ditaujet) {
-                                    //std::cout << "Pass ditaujet" << std::endl;
-									histos.at(index)->Fill(minz + z);
+                                histos.at(index)->Fill(minz + z);
+                            } else {
+                                bool pass_l1_ditaujet = false;
+                                for (auto triplet: l1_triplets) {
+                                    if (triplet[0] >=  miny + y
+                                            && triplet[1] >=  miny + yp
+                                            && triplet[2] >=  minz + z) {
+                                        pass_l1_ditaujet = true;
+                                        break;
+                                    }
                                 }
-							}
-						} //z
-					} //yp
-				} //y
+                                bool pass_ditaujet = false;
+                                for (auto triplet: off_triplets) {
+                                    if (triplet[0] >=  miny + y + add_to_leading_tau
+                                            && triplet[1] >=  miny + yp + add_to_subleading_tau
+                                            && triplet[2] >=  minz + z + add_to_jet) {
+                                        pass_ditaujet = true;
+                                        break;
+                                    }
+                                }
+                                
+                                if (pass_l1_ditaujet && pass_ditaujet) {
+                                    //std::cout << "Pass ditaujet" << std::endl;
+                                    histos.at(index)->Fill(minz + z);
+                                }
+                            }
+                        } //z
+                    } //yp
+                } //y
             } //xp
         } //x
         
