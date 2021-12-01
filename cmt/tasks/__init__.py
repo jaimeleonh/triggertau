@@ -3,3 +3,4 @@ from plotting import *
 from dijetplotting import *
 from totalplotting import *
 from curves import *
+from hlt import *

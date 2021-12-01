@@ -4,6 +4,7 @@ import law
 import luigi
 import json
 import os
+from copy import deepcopy as copy
 
 from analysis_tools.utils import (
     import_root, create_file_dir, join_root_selection
@@ -1574,6 +1575,8 @@ class DiTauRate(ComputeRate):
         ROOT = import_root()
 
         df = ROOT.RDataFrame(self.tree_name, input_file)
+        f = ROOT.TFile.Open(input_file)
+        tf = f.Get(self.tree_name)
         counts = {}
         counts_noweight = {}
         hmodel = ("total", "", 1, 1, 2)
@@ -1590,11 +1593,12 @@ class DiTauRate(ComputeRate):
         for xx in range(*self.xx_range):
             for xxp in range(self.xx_range[0], xx + 1):
                 hmodel = ("%s_%s" % (xx, xxp), "", 1, 1, 2)
-                counts[(xx, xxp)] = df.Define("myweight", "get_weight(weight)").Define(
-                    "pass", "leading_l1tau_pt >= {0} && subleading_l1tau_pt >= {1}".format(xx, xxp)
-                ).Histo1D(hmodel, "pass", "myweight")
-                counts_noweight[(xx, xxp)] = df.Define("pass", "leading_l1tau_pt >= {0} "
-                    "&& subleading_l1tau_pt >= {1}".format(xx, xxp)).Histo1D(hmodel, "pass")
+                if tf.GetEntries() > 0:
+                    counts[(xx, xxp)] = df.Define("myweight", "get_weight(weight)").Define(
+                        "pass", "leading_l1tau_pt >= {0} && subleading_l1tau_pt >= {1}".format(xx, xxp)
+                    ).Histo1D(hmodel, "pass", "myweight")
+                    counts_noweight[(xx, xxp)] = df.Define("pass", "leading_l1tau_pt >= {0} "
+                        "&& subleading_l1tau_pt >= {1}".format(xx, xxp)).Histo1D(hmodel, "pass")
                 # counts[(xx, xxp)] = df.Filter(
                     # "leading_l1tau_pt >= {0} "
                     # "&& subleading_l1tau_pt >= {1}".format(xx, xxp)
@@ -1602,10 +1606,13 @@ class DiTauRate(ComputeRate):
         
         histo2D = ROOT.TH2F("histo_ditau", "; xx; xxp; Events", 8, 32, 40, 8, 32, 40)
         histo2D_noweight = ROOT.TH2F("histo_ditau_noweight", "; xx; xxp; Events", 8, 32, 40, 8, 32, 40)
-        for xx in range(*self.xx_range):
-            for xxp in range(self.xx_range[0], xx + 1):
-                histo2D.Fill(xx, xxp, counts[(xx, xxp)].Integral())
-                histo2D_noweight.Fill(xx, xxp, counts_noweight[(xx, xxp)].Integral())
+        histo2D = copy(histo2D)
+        histo2D_noweight = copy(histo2D_noweight)
+        if tf.GetEntries() > 0:
+            for xx in range(*self.xx_range):
+                for xxp in range(self.xx_range[0], xx + 1):
+                        histo2D.Fill(xx, xxp, counts[(xx, xxp)].Integral())
+                        histo2D_noweight.Fill(xx, xxp, counts_noweight[(xx, xxp)].Integral())
 
         f = ROOT.TFile.Open(self.output()["root"].path, "RECREATE")
         histo2D.Write()
@@ -1819,7 +1826,8 @@ class AsymmManfredRate(AsymmRate):
         run = ROOT.TotalTrigger(input_file, self.output()["root"].path, self.tree_name,
             self.xx_range[0], self.xx_range[1], self.yy_range[0], self.yy_range[1],
             self.zz_range[0], self.zz_range[1], -1, -1,
-            -1, -1, -1
+            -1, -1, -1,
+            -1, -1,
         )
         run.RateAsymmManfredLoop()
 
