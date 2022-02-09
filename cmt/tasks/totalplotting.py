@@ -3,6 +3,10 @@
 import law
 import luigi
 import itertools
+from copy import deepcopy
+import json
+import tabulate
+from collections import OrderedDict
 from analysis_tools.utils import (
     import_root, create_file_dir, join_root_selection
 )
@@ -17,7 +21,7 @@ from cmt.tasks.trigger import (
     Rate, AsymmRate, AsymmVBFRate, AsymmDiJetRate, AsymmVBFDiJetRate, Acceptance, AsymmAcceptance,
     AsymmVBFAcceptance, AsymmKetiAcceptance, AsymmDiJetAcceptance, AsymmVBFDiJetAcceptance,
     AsymmKetiDiJetAcceptance, AsymmTriTauAcceptance, AsymmTriTauRate,
-    AsymmManfredAcceptance, AsymmManfredRate
+    AsymmManfredAcceptance, AsymmManfredRate, DiTauAcceptance
 )
 from cmt.tasks.plotting import PlotAcceptance, Plot2D, PlotRate, MapAcceptance  
 
@@ -58,8 +62,6 @@ class PlotTotalAcceptance(PlotAcceptance):
     @law.decorator.notify
     @law.decorator.localize(input=False)
     def run(self):
-        import itertools
-        import json
         ROOT = import_root()
 
         inp_trigger = self.input()["trigger"].path
@@ -168,8 +170,6 @@ class PlotTotal2D(Plot2D):
         return output
 
     def run(self):
-        from copy import deepcopy
-        import json
         ROOT = import_root()
         ROOT.gStyle.SetOptStat(0)
         ROOT.gStyle.SetPaintTextFormat("3.2f")
@@ -235,8 +235,6 @@ class PlotTotalRate(PlotRate):
     @law.decorator.notify
     @law.decorator.localize(input=False)
     def run(self):
-        import itertools
-        import json
         ROOT = import_root()
 
         inp_trigger = self.input()["trigger"].path
@@ -322,8 +320,6 @@ class PlotTotal2DRate(Plot2D):
         return output
 
     def run(self):
-        from copy import deepcopy
-        import json
         ROOT = import_root()
         
         inputs = self.input()
@@ -369,6 +365,61 @@ class PlotTotal2DRate(Plot2D):
         stats_path = self.output().path
         with open(create_file_dir(stats_path), "w") as json_f:
             json.dump(rate_dict, json_f, indent=0)
+
+
+class MapDiTauAcceptance(MapAcceptance):
+    xx_range = Rate.xx_range
+    yy_fixed = -1
+    zz_fixed = -1
+    rate_version = None
+
+    def requires(self):
+        reqs = {}
+        for dataset, category in zip(self.datasets, self.categories):
+            postfix = "{}_{}".format(dataset.name, category.name)
+            reqs["acceptance_%s" % postfix] = DiTauAcceptance.req(self,
+                version=self.acceptance_version, dataset_name=dataset.name,
+                category_name=category.name)
+        return reqs
+
+    def output(self):
+        return {
+            "table_txt": self.local_target("table.txt"),
+            "table_tex": self.local_target("table.tex"),
+        }
+        return outputs
+
+    @law.decorator.notify
+    def run(self):
+        import tabulate
+        inputs = self.input()
+        events = OrderedDict()
+        headers = [""]
+        # acceptance computation
+        for dataset, category in zip(self.datasets, self.categories):
+            postfix = "{}_{}".format(dataset.name, category.name)
+            headers.append("{}, {}".format(dataset.name, category.name))
+            if postfix not in events:
+                events[postfix] = OrderedDict()
+            for elem in inputs["acceptance_%s" % postfix].collection.targets.values():
+                with open(elem.path) as f:
+                    d = json.load(f)
+                    for xx, value in d.items():
+                        if int(xx) not in events[postfix]:
+                            events[postfix][int(xx)] = 0
+                        events[postfix][int(xx)] += value
+        table = []
+        for xx in range(*self.xx_range):
+            line = [xx]
+            for postfix in events:
+                line.append(float(events[postfix][xx]) / float(events[postfix][32]))
+            table.append(line)
+
+        txttable = tabulate.tabulate(table, headers=headers)
+        latextable = tabulate.tabulate(table, headers=headers, tablefmt="latex_raw")
+        latextable = latextable.replace("_", "\_")
+        
+        print latextable
 
 
 class MapTotalAcceptance(MapAcceptance):
@@ -434,9 +485,6 @@ class MapTotalAcceptance(MapAcceptance):
 
     @law.decorator.notify
     def run(self):
-        from copy import deepcopy
-        import json
-        from collections import OrderedDict
 
         ROOT = import_root()
         ROOT.gStyle.SetOptStat(0)
@@ -581,8 +629,10 @@ class MapAsymmAcceptance(MapAcceptance):
                 reqs["acceptance_%s" % postfix] = AsymmAcceptance.req(self,
                     version=self.acceptance_version, dataset_name=dataset.name,
                     category_name=category.name)
-        reqs["rate"] = AsymmRate.req(self, version=self.rate_version,
-            dataset_name=self.rate_dataset_name, category_name=self.rate_category_name)
+        reqs["rate"] = {}
+        for rate_dataset_name in self.rate_dataset_names:
+            reqs["rate"][rate_dataset_name] = AsymmRate.req(self, version=self.rate_version,
+                dataset_name=rate_dataset_name, category_name=self.rate_category_name)
         return reqs
 
     def get_postfix(self, postfix):
@@ -610,9 +660,6 @@ class MapAsymmAcceptance(MapAcceptance):
 
     @law.decorator.notify
     def run(self):
-        from copy import deepcopy
-        import json
-        from collections import OrderedDict
 
         ROOT = import_root()
         ROOT.gStyle.SetOptStat(0)
@@ -648,7 +695,7 @@ class MapAsymmAcceptance(MapAcceptance):
                         range(*self.xx_range), range(*self.yy_range)):
                     for xp, yp in itertools.product(
                             range(self.xx_range[0], x + 1), range(self.yy_range[0], y + 1)):
-            
+
                         if not self.check_symmetry(x, xp, y, yp):
                             continue
 
@@ -661,9 +708,21 @@ class MapAsymmAcceptance(MapAcceptance):
                     d = json.load(f)
                 den[(dataset, category)] += d["den"]
 
+        headers = []
+        line = []
+        for dataset, category in zip(self.datasets, self.categories):
+            headers.append("%s, %s" % (dataset.name, category.name))
+            line.append(den[(dataset, category)])
+
+        print "\n*********************************************************************************************"
+        print "Events passing DoubleIsoTau32:"
+        print tabulate.tabulate([line], headers=headers)
+        print "*********************************************************************************************\n"
+
+
         # rate computation
         histos["rate"] = {}
-        scaling = self.config.datasets.get(self.rate_dataset_name).get_aux("rate_scaling")
+        # scaling = self.config.datasets.get(self.rate_dataset_name).get_aux("rate_scaling")
         for x, y in itertools.product(
                 range(*self.xx_range), range(*self.yy_range)):
             for xp, yp in itertools.product(
@@ -678,24 +737,25 @@ class MapAsymmAcceptance(MapAcceptance):
                 histos["rate"]["%s, %s, %s, %s" % (x, xp, y, yp)] = ROOT.TH1F(*hmodel)
 
         nevents = 0
-        for elem in inputs["rate"].collection.targets.values():
-            rootfile = ROOT.TFile.Open(elem["root"].path)
-            for x, y in itertools.product(
-                    range(*self.xx_range), range(*self.yy_range)):
-                for xp, yp in itertools.product(
-                        range(self.xx_range[0], x + 1), range(self.yy_range[0], y + 1)):
+        for rate_dataset_name in self.rate_dataset_names:
+            for elem in inputs["rate"][rate_dataset_name].collection.targets.values():
+                rootfile = ROOT.TFile.Open(elem["root"].path)
+                for x, y in itertools.product(
+                        range(*self.xx_range), range(*self.yy_range)):
+                    for xp, yp in itertools.product(
+                            range(self.xx_range[0], x + 1), range(self.yy_range[0], y + 1)):
 
-                    if not self.check_symmetry(x, xp, y, yp):
-                        continue
+                        if not self.check_symmetry(x, xp, y, yp):
+                            continue
 
-                    histos["rate"]["%s, %s, %s, %s" % (x, xp, y, yp)].Add(
-                        rootfile.Get("histo_ditau_{0}_{1}__ditau_{2}_{3}_jet".format(
-                            x, xp, y, yp)).Clone())
-            rootfile.Close()
-            jsonfile = elem["stats"].path
-            with open(jsonfile) as f:
-                d = json.load(f)
-            nevents += d["nevents"]
+                        histos["rate"]["%s, %s, %s, %s" % (x, xp, y, yp)].Add(
+                            rootfile.Get("histo_ditau_{0}_{1}__ditau_{2}_{3}_jet".format(
+                                x, xp, y, yp)).Clone())
+                rootfile.Close()
+                jsonfile = elem["stats"].path
+                with open(jsonfile) as f:
+                    d = json.load(f)
+                nevents += d["nevents"]
 
         acceptances_to_plot = OrderedDict()
         for dataset, category in zip(self.datasets, self.categories):
@@ -721,7 +781,7 @@ class MapAsymmAcceptance(MapAcceptance):
                 # histos["rate"]["%s, %s, %s, %s" % (x, xp, y, yp)].Scale(
                     # (scaling * 2760. * 11246.) / (1000 * nevents))
                 histos["rate"]["%s, %s, %s, %s" % (x, xp, y, yp)].Scale(
-                    (60 * 2760. * 11246.) / (1000 * nevents))
+                    (53 * 2544. * 11246.) / (1000 * nevents))
                 for z in range(*self.zz_range):
                     if self.zz_fixed != -1 and self.zz_fixed != z:
                         continue
@@ -772,9 +832,6 @@ class MapAsymmTriTauAcceptance(MapAsymmAcceptance):
 
     @law.decorator.notify
     def run(self):
-        from copy import deepcopy
-        import json
-        from collections import OrderedDict
 
         ROOT = import_root()
         ROOT.gStyle.SetOptStat(0)
@@ -1017,9 +1074,6 @@ class MapVBFGainAcceptance(MapAsymmKetiAcceptance):
 
     @law.decorator.notify
     def run(self):
-        from copy import deepcopy
-        import json
-        from collections import OrderedDict
 
         ROOT = import_root()
         ROOT.gStyle.SetOptStat(0)
@@ -1236,9 +1290,6 @@ class MapAsymmDiJetAcceptance(MapAsymmAcceptance):
 
     @law.decorator.notify
     def run(self):
-        from copy import deepcopy
-        import json
-        from collections import OrderedDict
 
         ROOT = import_root()
         ROOT.gStyle.SetOptStat(0)
@@ -1470,6 +1521,8 @@ class MapAsymmManfredAcceptance(MapAsymmAcceptance):
                 reqs["acceptance_%s" % postfix] = AsymmManfredAcceptance.req(self,
                     version=self.acceptance_version, dataset_name=dataset.name,
                     category_name=category.name)
-        reqs["rate"] = AsymmManfredRate.req(self, version=self.rate_version,
-            dataset_name=self.rate_dataset_name, category_name=self.rate_category_name)
+        reqs["rate"] = {}
+        for rate_dataset_name in self.rate_dataset_names:
+            reqs["rate"][rate_dataset_name] = AsymmManfredRate.req(self, version=self.rate_version,
+                dataset_name=rate_dataset_name, category_name=self.rate_category_name)
         return reqs

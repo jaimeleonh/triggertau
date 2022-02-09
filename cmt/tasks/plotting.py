@@ -509,8 +509,8 @@ class Plot2DRate(DatasetTaskWithCategory):
 
 class RateTask():
     rate_version = luigi.Parameter(description="version of outputs to produce")
-    rate_dataset_name = luigi.Parameter(description="dataset name used for rate studies",
-        default="nu")
+    rate_dataset_names = law.CSVParameter(description="dataset name used for rate studies",
+        default=("nu",))
     rate_category_name = luigi.Parameter(description="category name used for rate studies",
         default="base")
 
@@ -910,8 +910,8 @@ class Plot2DLimitRate(Plot2D, RateTask):
 
 
 class PlotDiTauRate(DatasetWrapperTask, ConfigTaskWithCategory):
-    pu_scaling = luigi.FloatParameter(default=60., description="value to scale by PU "
-        "default: 60.")
+    pu_scaling = luigi.FloatParameter(default=53., description="value to scale by PU "
+        "default: 53.")
     xx_range = DiTauRate.xx_range
     def requires(self):
         reqs = {}
@@ -951,7 +951,7 @@ class PlotDiTauRate(DatasetWrapperTask, ConfigTaskWithCategory):
                     d = json.load(f)
                 nevents += d["nevents"]
 
-        histo2D.Scale((2760. * 11246. * self.pu_scaling) / (1000 * nevents))
+        histo2D.Scale((2544. * 11246. * self.pu_scaling) / (1000 * nevents))
 
         for xxp in range(*self.xx_range):
             for xx in range(self.xx_range[0], xxp):
@@ -1122,7 +1122,7 @@ class MapAcceptance(RateTask, DatasetWrapperTask):
 
     def store_parts(self):
         parts = super(MapAcceptance, self).store_parts()
-        parts["rate"] = "{}__{}".format(self.rate_dataset_name, self.rate_version)
+        parts["rate"] = "{}__{}".format("_".join(self.rate_dataset_names), self.rate_version)
         return parts
 
     def get_points(self):
@@ -1471,8 +1471,8 @@ class PlotNanoAODStuff(DatasetTaskWithCategory):
     def add_to_root(self, root):
         return AddTrigger.add_to_root(root)
 
-    def add_dataframe_definitions(self, df):
-        df = AddTrigger.add_dataframe_definitions(df)
+    def add_dataframe_definitions(self, df, category=None):
+        df = AddTrigger.add_dataframe_definitions(df, category=category)
         restriction = ("L1Obj_type == 0 "
                     "&& maskDeltaR("
                         "L1Obj_eta, "
@@ -1497,32 +1497,20 @@ class PlotNanoAODStuff(DatasetTaskWithCategory):
                         "0.5)")
         df = df.Define("lead_sublead_goodl1jet_pt_er2p5",
             "lead_sublead("
-                "L1Obj_pt[{0}],"
-                "L1Obj_eta[{0}],"
-                "L1Obj_phi[{0}],"
                 "L1Obj_pt[{0}]"
-            ")[0]".format(restriction))
+            ", 3)".format(restriction))
         
         df = df.Define("lead_sublead_genvistau_pt", 
             "lead_sublead("
-                "GenVisTau_pt,"
-                "GenVisTau_eta,"
-                "GenVisTau_phi,"
-                "GenVisTau_mass)[0]")
+                "GenVisTau_pt, 3)")
         
         df = df.Define("lead_sublead_genvistau_eta", 
             "lead_sublead("
-                "GenVisTau_pt,"
-                "GenVisTau_eta,"
-                "GenVisTau_phi,"
-                "GenVisTau_mass)[1]")
+                "GenVisTau_eta, 3)")
         
         df = df.Define("lead_sublead_genvistau_phi", 
             "lead_sublead("
-                "GenVisTau_pt,"
-                "GenVisTau_eta,"
-                "GenVisTau_phi,"
-                "GenVisTau_mass)[2]")
+                "GenVisTau_phi, 3)")
         
         return df
 
@@ -1568,9 +1556,9 @@ class PlotNanoAODStuff(DatasetTaskWithCategory):
         df = ROOT.RDataFrame(self.tree_name, dataframe_files)
 
         ROOT = self.add_to_root(ROOT)
-        df = self.add_dataframe_definitions(df)
+        df = self.add_dataframe_definitions(df, category=self.category)
 
-        hmodel = ("jet_pt", "; pt [GeV]; Events / 4 GeV", 20, 20, 100)
+        hmodel = ("jet_pt", "; pt [GeV]; Events / 4 GeV", 20, 20, 40)
 
         leading_l1_tau_pt = df.Define("leading_l1_tau_pt",
             "lead_sublead_goodl1tau_pt[0]").Histo1D(hmodel, "leading_l1_tau_pt")
@@ -1582,10 +1570,10 @@ class PlotNanoAODStuff(DatasetTaskWithCategory):
         subleading_tau_pt = df.Define("subleading_tau_pt",
             "lead_sublead_goodtau_pt[1]").Histo1D(hmodel, "subleading_tau_pt")
 
-        leading_pt = df.Define("leading_l1_pt",
-            "lead_sublead_goodl1jet_pt[0]").Histo1D(hmodel, "leading_l1_pt")
-        subleading_pt = df.Define("subleading_l1_pt",
-            "lead_sublead_goodl1jet_pt[1]").Histo1D(hmodel, "subleading_l1_pt")
+        # leading_pt = df.Define("leading_l1_pt",
+            # "lead_sublead_goodl1jet_pt[0]").Histo1D(hmodel, "leading_l1_pt")
+        # subleading_pt = df.Define("subleading_l1_pt",
+            # "lead_sublead_goodl1jet_pt[1]").Histo1D(hmodel, "subleading_l1_pt")
 
         leading_pt_er2p5 = df.Define("leading_l1_pt",
             "lead_sublead_goodl1jet_pt_er2p5[0]").Histo1D(hmodel, "leading_l1_pt")
@@ -1599,16 +1587,16 @@ class PlotNanoAODStuff(DatasetTaskWithCategory):
 
 
         hmodel = ("jet_eta", "; #eta ; Events / 0.2", 50, -5, 5)
-        leading_eta = df.Define("leading_eta", "lead_sublead_goodl1jet_eta[0]").Histo1D(hmodel, "leading_eta")
-        subleading_eta = df.Define("subleading_eta", "lead_sublead_goodl1jet_eta[1]").Histo1D(hmodel, "subleading_eta")
+        # leading_eta = df.Define("leading_eta", "lead_sublead_goodl1jet_eta[0]").Histo1D(hmodel, "leading_eta")
+        # subleading_eta = df.Define("subleading_eta", "lead_sublead_goodl1jet_eta[1]").Histo1D(hmodel, "subleading_eta")
         
         name_plots = [
             ("l1tau_pt", (leading_l1_tau_pt, subleading_l1_tau_pt)),
             ("tau_pt", (leading_tau_pt, subleading_tau_pt)),
             ("genvistau_pt", (leading_genvistau_pt, subleading_genvistau_pt)),
-            ("jet_pt", (leading_pt, subleading_pt)),
+            # ("jet_pt", (leading_pt, subleading_pt)),
             ("jet_pt_er2p5", (leading_pt_er2p5, subleading_pt_er2p5)),
-            ("jet_eta", (leading_eta, subleading_eta))
+            # ("jet_eta", (leading_eta, subleading_eta))
         ]
 
         hmodel = ("reco_pt_dif", "; (L1 #tau - Reco #tau) #Delta p_{t}[GeV]; Events / 1 GeV", 40, -20, 20)
@@ -1727,7 +1715,7 @@ class PlotNanoAODStuff(DatasetTaskWithCategory):
 
         for name, plots in name_plots:
             c = ROOT.TCanvas("", "", 800, 800)
-            leg = ROOT.TLegend(0.7, 0.7, 0.9, 0.9)
+            leg = ROOT.TLegend(0.5, 0.75, 0.9, 0.9)
             leading = plots[0].Clone()
             subleading = plots[1].Clone()
             leading.SetLineColor(ROOT.kBlue)
@@ -1741,8 +1729,8 @@ class PlotNanoAODStuff(DatasetTaskWithCategory):
             leg.AddEntry(leading, "Leading " + suffix, "l")
             leg.AddEntry(subleading, "Subleading " + suffix, "l")
 
-            if leading_pt.GetMaximum() < subleading_pt.GetMaximum():
-                leading_pt.SetMaximum(1.1 * subleading_pt.GetMaximum())
+            if leading.GetMaximum() < subleading.GetMaximum():
+                leading.SetMaximum(1.1 * subleading.GetMaximum())
             leading.Draw()
             subleading.Draw("same")
 

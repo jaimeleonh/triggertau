@@ -223,7 +223,7 @@ class AddTrigger(DatasetTaskWithCategory, law.LocalWorkflow, HTCondorWorkflow):
                     "Jet_phi, "
                     "Tau_eta[Tau_pt >= {0} && abs(Tau_eta) <= 2.1], "
                     "Tau_eta[Tau_pt >= {0} && abs(Tau_phi) <= 2.1], "
-                    "0.5)".format(tau_pt + category.get_aux("add_to_subleading_pt"))
+                    "0.5)".format(tau_pt + category.get_aux("add_to_subleading_pt", 18))
             )
             df = df.Define("lead_sublead_goodjet_pt_tau_pt_%s" % tau_pt,
                 "lead_sublead(Jet_pt[{0}], 3)".format(restriction))
@@ -717,6 +717,40 @@ class AcceptanceWrapper(DatasetCategoryWrapperTask):
 
     def atomic_requires(self, dataset, category):
         return Acceptance.vreq(self, dataset_name=dataset.name, category_name=category.name)
+
+
+class DiTauAcceptance(Acceptance):
+    def output(self):
+        return self.local_target("{}".format(self.input()["data"].path.split("/")[-1]
+            ).replace(".root", ".json"))
+    
+    def get_new_dataframe(self, input_file, output_file):
+        ROOT = import_root()
+
+        df = ROOT.RDataFrame(self.tree_name, input_file)
+        counts = {}
+        for xx in range(*self.xx_range):
+            counts[xx] = df.Filter(
+                "leading_l1tau_pt >= {0} "
+                "&& subleading_l1tau_pt >= {1}"
+                "&& leading_tau_pt >= ({0} + {2}) "
+                "&& subleading_tau_pt >= ({1} + {3})".format(
+                    xx,
+                    xx,
+                    self.category.get_aux("add_to_leading_pt"),
+                    self.category.get_aux("add_to_subleading_pt")
+                )
+            ).Count()
+        stats = {xx: counts[xx].GetValue() for xx in counts}
+        path = self.output().path
+        with open(create_file_dir(path), "w") as json_f:
+            json.dump(stats, json_f, indent=4)
+
+
+class DiTauAcceptanceWrapper(DatasetCategoryWrapperTask):
+
+    def atomic_requires(self, dataset, category):
+        return DiTauAcceptance.vreq(self, dataset_name=dataset.name, category_name=category.name)
 
 
 class AsymmAcceptance(Acceptance):
